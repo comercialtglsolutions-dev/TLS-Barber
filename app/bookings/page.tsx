@@ -1,24 +1,35 @@
-import { getServerSession } from "next-auth"
+import { createClient } from "../_lib/supabase/server"
 import Header from "../_components/header"
-import { authOptions } from "../_lib/auth"
-import { notFound } from "next/navigation"
+import { redirect } from "next/navigation"
 import BookingItem from "../_components/booking-item"
 import { getConfirmedBookings } from "../_data/get-confirmed-bookings"
 import { getConcludedBookings } from "../_data/get-concluded-bookings"
-
 import { db } from "../_lib/prisma"
 
 const Bookings = async () => {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) {
-    // TODO: mostrar pop-up de login
-    return notFound()
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+
+  if (!authUser) {
+    return redirect("/")
   }
+
   const confirmedBookings = await getConfirmedBookings()
   const concludedBookings = await getConcludedBookings()
 
-  // Fetch settings
-  const settings = await db.settings.findFirst()
+  // Fetch settings for the user's barbershop if applicable
+  const user = await db.user.findUnique({
+    where: { id: authUser.id },
+    select: { barbershopId: true },
+  })
+
+  const settings = user?.barbershopId
+    ? await db.settings.findUnique({
+        where: { barbershopId: user.barbershopId },
+      })
+    : await db.settings.findFirst()
 
   return (
     <>

@@ -11,7 +11,7 @@ import { SheetClose, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet"
 import { quickSearchOptions } from "../_constants/search"
 import Link from "next/link"
 import Image from "next/image"
-import { signOut, useSession } from "next-auth/react"
+import { useAuth } from "../_providers/auth"
 import UserIcon from "./user-icon"
 import {
   AlertDialog,
@@ -32,7 +32,7 @@ import { getSettings } from "../_actions/get-settings"
 import { InstagramIcon, CreditCard } from "lucide-react"
 
 const SidebarSheet = () => {
-  const { data } = useSession()
+  const { user, profile, signOut } = useAuth()
   const router = useRouter()
   const [settings, setSettings] = useState<any>(null)
 
@@ -44,10 +44,10 @@ const SidebarSheet = () => {
     fetchSettings()
   }, [])
 
-  const handleLogoutClick = () => signOut({ callbackUrl: "/" })
+  const handleLogoutClick = () => signOut()
 
   const handleBookingsClick = () => {
-    if (!data?.user) {
+    if (!user) {
       return toast.error(
         "Você precisa estar logado para ver seus agendamentos.",
       )
@@ -84,7 +84,7 @@ const SidebarSheet = () => {
               </Button>
             </SheetClose>
 
-            {(data?.user as any)?.role === "ADMIN" && (
+            {profile?.role === "ADMIN" && (
               <>
                 <Button className="justify-start gap-2" asChild>
                   <Link href="/admin" className="text-white">
@@ -107,7 +107,7 @@ const SidebarSheet = () => {
               </>
             )}
 
-            {data?.user && (data.user as any)?.role !== "ADMIN" && (
+            {user && profile?.role !== "ADMIN" && (
               <SheetClose asChild>
                 <Button className="justify-start gap-2" asChild>
                   <Link href="/dashboard" className="text-white">
@@ -137,7 +137,7 @@ const SidebarSheet = () => {
             ))}
           </div>
 
-          {data?.user && (
+          {user && (
             <div className="flex flex-col gap-2 py-5">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -201,13 +201,6 @@ const SidebarSheet = () => {
               >
                 <InstagramIcon size={24} />
               </Link>
-              {/* <Link
-                href="https://www.facebook.com"
-                target="_blank"
-                className="text-white transition-colors hover:text-[#1877F2]"
-              >
-                <FacebookIcon size={24} />
-              </Link> */}
             </div>
           </div>
         </div>

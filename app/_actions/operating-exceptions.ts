@@ -2,8 +2,7 @@
 
 import { db } from "../_lib/prisma"
 import { revalidatePath } from "next/cache"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 import { startOfDay } from "date-fns"
 
 interface UpsertOperatingExceptionProps {
@@ -18,11 +17,21 @@ interface UpsertOperatingExceptionProps {
 export const upsertOperatingException = async (
   props: UpsertOperatingExceptionProps,
 ) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if ((session?.user as any)?.role !== "ADMIN") {
+  if (!authUser) throw new Error("Não autorizado")
+
+  const user = await db.user.findUnique({ where: { id: authUser.id } })
+
+  if (user?.role !== "ADMIN") {
     throw new Error("Acesso negado")
   }
+
+  const barbershopId = user.barbershopId
+  if (!barbershopId) throw new Error("Barbearia não vinculada")
 
   const normalizedDate = startOfDay(props.date)
 
@@ -40,6 +49,7 @@ export const upsertOperatingException = async (
   } else {
     await (db as any).operatingException.create({
       data: {
+        barbershopId,
         date: normalizedDate,
         startTime: props.startTime,
         endTime: props.endTime,
@@ -54,9 +64,16 @@ export const upsertOperatingException = async (
 }
 
 export const deleteOperatingException = async (id: string) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if ((session?.user as any)?.role !== "ADMIN") {
+  if (!authUser) throw new Error("Não autorizado")
+
+  const user = await db.user.findUnique({ where: { id: authUser.id } })
+
+  if (user?.role !== "ADMIN") {
     throw new Error("Acesso negado")
   }
 

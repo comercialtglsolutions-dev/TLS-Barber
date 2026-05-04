@@ -7,7 +7,7 @@ import { ptBR } from "date-fns/locale"
 import { format } from "date-fns"
 import { CalendarIcon, ChevronDown, Loader2Icon, PlusIcon } from "lucide-react"
 import { toast } from "sonner"
-import { useSession } from "next-auth/react"
+import { useAuth } from "@/app/_providers/auth"
 
 import { Button } from "@/app/_components/ui/button"
 import {
@@ -65,7 +65,7 @@ const ManualBookingDialog = ({
     },
   })
 
-  const { data: session } = useSession()
+  const { profile } = useAuth()
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
 
   const selectedDate = form.watch("date")
@@ -73,7 +73,7 @@ const ManualBookingDialog = ({
   useEffect(() => {
     if (!selectedDate) return
     const fetchBookings = async () => {
-      const barbershopId = (session?.user as any)?.barbershopId
+      const barbershopId = profile?.barbershopId
       if (!barbershopId) return
 
       const slots = await getAvailableSlots({
@@ -83,7 +83,7 @@ const ManualBookingDialog = ({
       setAvailableSlots(slots)
     }
     fetchBookings()
-  }, [selectedDate, session])
+  }, [selectedDate, profile?.barbershopId])
 
   // Reset form when dialog opens to ensure clean state
   useEffect(() => {

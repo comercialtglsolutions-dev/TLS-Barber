@@ -5,22 +5,26 @@ import { LogInIcon } from "lucide-react"
 import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog"
 import SignInDialog from "./sign-in-dialog"
 import { Avatar, AvatarImage } from "./ui/avatar"
-import { useSession } from "next-auth/react"
+import { useAuth } from "../_providers/auth"
 
 const UserIcon = () => {
-  const { data } = useSession()
+  const { user } = useAuth()
 
   return (
     <div className="flex items-center justify-between gap-3 border-b border-solid py-5">
-      {data?.user ? (
+      {user ? (
         <div className="flex items-center gap-2">
           <Avatar className="border border-white/10">
-            <AvatarImage src={data?.user?.image ?? ""} />
+            <AvatarImage src={user?.user_metadata?.avatar_url ?? ""} />
           </Avatar>
 
           <div>
-            <p className="font-bold text-white">{data.user.name}</p>
-            <p className="text-xs text-white">{data.user.email}</p>
+            <p className="font-bold text-white">
+              {user?.user_metadata?.full_name ||
+                user?.user_metadata?.name ||
+                user?.email?.split("@")[0]}
+            </p>
+            <p className="text-xs text-white">{user?.email}</p>
           </div>
         </div>
       ) : (

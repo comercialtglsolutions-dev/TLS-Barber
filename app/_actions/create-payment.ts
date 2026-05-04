@@ -8,16 +8,58 @@ export async function createPayment(params: {
   itemId: string
   type: "SERVICE" | "PRODUCT"
   method: "pix" | "card"
+  barbershopId?: string
   metadata?: any
 }) {
-  // 1. Encontrar o banco habilitado para o site (priorizando o habilitado)
+  // 1. Determinar o BarbershopId do item
+  let barbershopId = params.barbershopId || ""
+
+  if (!barbershopId) {
+    if (params.type === "SERVICE") {
+      if (params.itemId.startsWith("combined_")) {
+        const ids = params.itemId.replace("combined_", "").split("_")
+        const service = await db.service.findFirst({
+          where: { id: { in: ids } },
+          select: { barbershopId: true },
+        })
+        barbershopId = service?.barbershopId || ""
+      } else {
+        const service = await db.service.findUnique({
+          where: { id: params.itemId },
+          select: { barbershopId: true },
+        })
+        if (service) {
+          barbershopId = service.barbershopId
+        } else {
+          const combo = await db.combo.findUnique({
+            where: { id: params.itemId },
+            select: { barbershopId: true },
+          })
+          barbershopId = combo?.barbershopId || ""
+        }
+      }
+    } else {
+      const product = await db.product.findUnique({
+        where: { id: params.itemId },
+        select: { barbershopId: true },
+      })
+      barbershopId = product?.barbershopId || ""
+    }
+  }
+
+  // 2. Encontrar o banco habilitado para ESTA barbearia
   const credential = await db.bankCredential.findFirst({
-    where: { isEnabled: true },
+    where: {
+      isEnabled: true,
+      bank: { barbershopId: barbershopId },
+    },
     include: { bank: true },
   })
 
   if (!credential) {
-    throw new Error("Nenhum banco configurado e ativo.")
+    throw new Error(
+      "Esta barbearia ainda não configurou uma conta para receber pagamentos online.",
+    )
   }
 
   const provider = credential.bank.provider

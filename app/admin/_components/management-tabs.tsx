@@ -16,9 +16,11 @@ import {
   SettingsIcon,
   ClockIcon,
   CreditCardIcon,
+  UsersIcon,
 } from "lucide-react"
 import OperatingHoursManager from "./operating-hours-manager"
 import IntegrationsManager from "./integrations-manager"
+import BarbersTable from "./barbers-table"
 
 interface ManagementTabsProps {
   services: Service[]
@@ -28,6 +30,7 @@ interface ManagementTabsProps {
   operatingDays: any[]
   operatingExceptions: any[]
   banks: any[]
+  barbers: any[]
   subscriptionPlan: string
   children: React.ReactNode // Dashboard content
 }
@@ -41,6 +44,7 @@ const ManagementTabs = ({
   operatingDays,
   operatingExceptions,
   banks,
+  barbers,
   children,
 }: ManagementTabsProps) => {
   const searchParams = useSearchParams()
@@ -54,6 +58,7 @@ const ManagementTabs = ({
     | "settings"
     | "operating-hours"
     | "bancos"
+    | "barbers"
   >(initialTab || "dashboard")
 
   // Update tab if URL changes (optional but good for UX)
@@ -62,6 +67,7 @@ const ManagementTabs = ({
     if (
       tab &&
       (tab === "bancos" ||
+        tab === "barbers" ||
         tab === "services" ||
         tab === "products" ||
         tab === "combos" ||
@@ -109,6 +115,14 @@ const ManagementTabs = ({
           Combos
         </Button>
         <Button
+          variant={activeTab === "barbers" ? "default" : "ghost"}
+          onClick={() => setActiveTab("barbers")}
+          className="h-9 px-3 text-xs lg:h-10 lg:gap-2 lg:px-4 lg:text-sm"
+        >
+          <UsersIcon className="mr-2 h-4 w-4 lg:mr-0" />
+          Barbeiros
+        </Button>
+        <Button
           variant={activeTab === "operating-hours" ? "default" : "ghost"}
           onClick={() => setActiveTab("operating-hours")}
           className="h-9 px-3 text-xs lg:h-10 lg:gap-2 lg:px-4 lg:text-sm"
@@ -117,20 +131,20 @@ const ManagementTabs = ({
           Horários
         </Button>
         <Button
-          variant={activeTab === "settings" ? "default" : "ghost"}
-          onClick={() => setActiveTab("settings")}
-          className="h-9 px-3 text-xs lg:h-10 lg:gap-2 lg:px-4 lg:text-sm"
-        >
-          <SettingsIcon className="mr-2 h-4 w-4 lg:mr-0" />
-          Configurações
-        </Button>
-        <Button
           variant={activeTab === "bancos" ? "default" : "ghost"}
           onClick={() => setActiveTab("bancos")}
           className="h-9 px-3 text-xs lg:h-10 lg:gap-2 lg:px-4 lg:text-sm"
         >
           <CreditCardIcon className="mr-2 h-4 w-4 lg:mr-0" />
           Bancos
+        </Button>
+        <Button
+          variant={activeTab === "settings" ? "default" : "ghost"}
+          onClick={() => setActiveTab("settings")}
+          className="h-9 px-3 text-xs lg:h-10 lg:gap-2 lg:px-4 lg:text-sm"
+        >
+          <SettingsIcon className="mr-2 h-4 w-4 lg:mr-0" />
+          Configurações
         </Button>
       </div>
 
@@ -162,7 +176,10 @@ const ManagementTabs = ({
             operatingExceptions={operatingExceptions}
           />
         )}
-        {activeTab === "bancos" && <IntegrationsManager banks={banks} />}
+        {activeTab === "bancos" && (
+          <IntegrationsManager banks={banks} settings={settings} />
+        )}
+        {activeTab === "barbers" && <BarbersTable barbers={barbers} />}
       </div>
     </div>
   )

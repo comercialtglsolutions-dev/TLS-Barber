@@ -1,5 +1,5 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
+import { db } from "../_lib/prisma"
 import { redirect } from "next/navigation"
 import { getAdminSummary } from "../_data/get-admin-summary"
 import Header from "../_components/header"
@@ -19,11 +19,24 @@ import ManualSaleDialog from "./_components/manual-sale-dialog"
 import DeleteBookingButton from "./_components/delete-booking-button"
 import DeletePurchaseButton from "./_components/delete-purchase-button"
 import { getBanks } from "../_actions/get-banks"
+import ConfirmPixButton from "./_components/confirm-pix-button"
 
 const AdminPage = async () => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  if (!authUser) {
+    return redirect("/")
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: authUser.id },
+    select: { id: true, role: true, subscriptionPlan: true },
+  })
+
+  if (user?.role !== "ADMIN") {
     return redirect("/")
   }
 
@@ -37,6 +50,7 @@ const AdminPage = async () => {
     settings,
     operatingDays,
     operatingExceptions,
+    barbers,
   } = await getAdminSummary()
 
   const banks = await getBanks()
@@ -80,11 +94,11 @@ const AdminPage = async () => {
           services={services}
           products={products}
           combos={combos}
-          subscriptionPlan={(session.user as any).subscriptionPlan}
+          subscriptionPlan={user.subscriptionPlan as any}
           settings={
             settings ||
             ({
-              id: 0,
+              id: "",
               name: "",
               address: "",
               phones: [],
@@ -99,9 +113,9 @@ const AdminPage = async () => {
           operatingDays={operatingDays}
           operatingExceptions={operatingExceptions}
           banks={banks}
+          barbers={barbers}
         >
           <div className="flex flex-col gap-8">
-            {/* METRICS */}
             {/* METRICS */}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
               <Card className="border-white/10 bg-[#1A1A1A]">
@@ -183,20 +197,33 @@ const AdminPage = async () => {
                       className="flex items-center justify-between rounded-lg border border-white/5 bg-[#222] p-2 lg:p-3"
                     >
                       <div className="flex min-w-0 flex-1 flex-col pr-2">
-                        <span className="truncate text-xs font-bold text-white lg:text-sm">
-                          {booking.user.name}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-xs font-bold text-white lg:text-sm">
+                            {booking.user.name}
+                          </span>
+                          {booking.paymentStatus === "PENDING_VERIFICATION" && (
+                            <Badge className="bg-yellow-500/20 text-[8px] text-yellow-500 hover:bg-yellow-500/20 lg:text-[10px]">
+                              Aguardando Pix
+                            </Badge>
+                          )}
+                        </div>
                         <span className="truncate text-[10px] text-gray-400 lg:text-xs">
                           {booking.service?.name ||
                             booking.combo?.name ||
                             "Sem descrição"}
                         </span>
-                        <Badge
-                          variant="outline"
-                          className="mt-1 flex w-fit border-green-500 px-1 py-0 text-[8px] text-green-500 lg:hidden"
-                        >
-                          Confirmado
-                        </Badge>
+                        <div className="mt-1 lg:hidden">
+                          {booking.paymentStatus === "PENDING_VERIFICATION" ? (
+                            <ConfirmPixButton bookingId={booking.id} />
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="border-green-500 px-1 py-0 text-[8px] text-green-500"
+                            >
+                              Confirmado
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 lg:gap-6">
                         <div className="flex flex-col items-end lg:flex-row lg:items-center lg:gap-5">
@@ -224,12 +251,19 @@ const AdminPage = async () => {
                             })}
                           </span>
 
-                          <Badge
-                            variant="outline"
-                            className="hidden h-5 border-green-500 text-[10px] text-green-500 lg:flex"
-                          >
-                            Confirmado
-                          </Badge>
+                          <div className="hidden lg:flex">
+                            {booking.paymentStatus ===
+                            "PENDING_VERIFICATION" ? (
+                              <ConfirmPixButton bookingId={booking.id} />
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="border-green-500 text-[10px] text-green-500"
+                              >
+                                Confirmado
+                              </Badge>
+                            )}
+                          </div>
 
                           <div className="flex items-center gap-1 text-[10px] text-gray-400 lg:hidden">
                             <span>
@@ -256,7 +290,6 @@ const AdminPage = async () => {
                 </CardContent>
               </Card>
 
-              {/* RECENT PURCHASES */}
               <Card className="border-white/10 bg-[#1A1A1A]">
                 <CardHeader>
                   <CardTitle className="text-lg font-bold text-white">

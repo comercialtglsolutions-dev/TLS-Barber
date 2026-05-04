@@ -1,23 +1,28 @@
 "use server"
 
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
 import { db } from "../_lib/prisma"
+import { createClient } from "../_lib/supabase/server"
 
 export const getConfirmedBookings = async () => {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) {
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+
+  if (!authUser) {
     return []
   }
+
   return db.booking.findMany({
     where: {
-      userId: (session.user as any).id,
+      userId: authUser.id,
       date: {
         gte: new Date(),
       },
     },
     include: {
       service: true,
+      barbershop: true,
     },
     orderBy: {
       date: "asc",

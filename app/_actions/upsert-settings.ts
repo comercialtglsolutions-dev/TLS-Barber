@@ -1,22 +1,30 @@
-// @ts-nocheck
 "use server"
 
 import { db } from "../_lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { settingsSchema, SettingsSchema } from "../admin/_schemas"
 
 export const upsertSettings = async (data: SettingsSchema) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if ((session?.user as any)?.role !== "ADMIN") {
+  if (!authUser) throw new Error("Acesso negado")
+
+  const user = await db.user.findUnique({ where: { id: authUser.id } })
+
+  if (user?.role !== "ADMIN") {
     throw new Error("Acesso negado")
   }
 
   const validatedData = settingsSchema.parse(data)
+  const barbershopId = user.barbershopId
 
-  const barbershopId = (session.user as any).barbershopId
+  if (!barbershopId) {
+    throw new Error("Barbearia não vinculada ao usuário")
+  }
 
   await db.settings.upsert({
     where: { barbershopId },
@@ -31,6 +39,12 @@ export const upsertSettings = async (data: SettingsSchema) => {
       trialDays: validatedData.trialDays || 15,
       instagramUrl: validatedData.instagramUrl || "",
       whatsappUrl: validatedData.whatsappUrl || "",
+      // @ts-ignore
+      pixKey: (data as any).pixKey || null,
+      // @ts-ignore
+      pixKeyType: (data as any).pixKeyType || null,
+      // @ts-ignore
+      pixBeneficiary: (data as any).pixBeneficiary || null,
     },
     create: {
       barbershopId,
@@ -44,6 +58,12 @@ export const upsertSettings = async (data: SettingsSchema) => {
       trialDays: validatedData.trialDays || 15,
       instagramUrl: validatedData.instagramUrl || "",
       whatsappUrl: validatedData.whatsappUrl || "",
+      // @ts-ignore
+      pixKey: (data as any).pixKey || null,
+      // @ts-ignore
+      pixKeyType: (data as any).pixKeyType || null,
+      // @ts-ignore
+      pixBeneficiary: (data as any).pixBeneficiary || null,
     },
   })
 

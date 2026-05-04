@@ -3,8 +3,7 @@
 import { db } from "@/app/_lib/prisma"
 import { comboSchema } from "../admin/_schemas"
 import { revalidatePath } from "next/cache"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 import { getPlanLimits } from "../_lib/subscription-limits"
 
 export const upsertCombo = async (params: {
@@ -16,9 +15,24 @@ export const upsertCombo = async (params: {
   service1Id: string
   service2Id: string
 }) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  if (!authUser) throw new Error("Não autorizado")
+
+  const user = await db.user.findUnique({
+    where: { id: authUser.id },
+    select: {
+      id: true,
+      role: true,
+      barbershopId: true,
+      subscriptionPlan: true,
+    },
+  })
+
+  if (user?.role !== "ADMIN") {
     throw new Error("Não autorizado")
   }
 
@@ -28,7 +42,6 @@ export const upsertCombo = async (params: {
   let finalPrice = price
 
   if (!finalPrice || finalPrice <= 0) {
-    // Fetch services to calculate total price
     const [service1, service2] = await Promise.all([
       db.service.findUnique({ where: { id: service1Id } }),
       db.service.findUnique({ where: { id: service2Id } }),
@@ -41,18 +54,14 @@ export const upsertCombo = async (params: {
     finalPrice = Number(service1.price) + Number(service2.price)
   }
 
-  const barbershopId = (session.user as any).barbershopId
+  const barbershopId = user.barbershopId
 
-  // VERIFICAÇÃO DE LIMITES DO PLANO
+  if (!barbershopId) {
+    throw new Error("Barbearia não encontrada")
+  }
+
   if (!id) {
-    const user = (await db.user.findUnique({
-      where: { id: (session.user as any).id },
-      // @ts-ignore
-      select: { subscriptionPlan: true },
-    })) as any
-
     const count = await db.combo.count({
-      // @ts-ignore
       where: { barbershopId },
     })
 
@@ -65,8 +74,9 @@ export const upsertCombo = async (params: {
     }
   }
 
+  let result
   if (id) {
-    await (db as any).combo.update({
+    result = await (db as any).combo.update({
       where: { id },
       data: {
         name,
@@ -79,7 +89,7 @@ export const upsertCombo = async (params: {
       },
     })
   } else {
-    await (db as any).combo.create({
+    result = await (db as any).combo.create({
       data: {
         name,
         description,
@@ -94,4 +104,5 @@ export const upsertCombo = async (params: {
 
   revalidatePath("/admin")
   revalidatePath("/")
+  return result
 }

@@ -2,21 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { db } from "../_lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
-
-// Definição da interface para o usuário
-interface User {
-  id: string
-  name?: string
-  email?: string
-  image?: string
-}
-
-// Atualização da interface de sessão
-interface Session {
-  user?: User
-}
+import { createClient } from "../_lib/supabase/server"
 
 interface CreateBookingParams {
   serviceId: string
@@ -24,11 +10,12 @@ interface CreateBookingParams {
 }
 
 export const createBooking = async (params: CreateBookingParams) => {
-  // Obtém a sessão do servidor
-  const session = (await getServerSession(authOptions)) as Session
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  // Verifica se o usuário está autenticado
-  if (!session.user || !session.user.id) {
+  if (!authUser) {
     throw new Error("Usuário não autenticado!")
   }
 
@@ -43,13 +30,12 @@ export const createBooking = async (params: CreateBookingParams) => {
 
   await (db as any).booking.create({
     data: {
-      userId: (session.user as any).id,
+      userId: authUser.id,
       serviceId: params.serviceId,
       date: params.date,
       barbershopId: service.barbershopId,
     },
   })
 
-  // Revalida o caminho para atualizar a página com a nova reserva
   revalidatePath("/barbershops/[id]")
 }

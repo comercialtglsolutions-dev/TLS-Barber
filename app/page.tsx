@@ -7,11 +7,9 @@ import {
   Calendar,
   MessageCircle,
   CreditCard,
-  Users,
   ShoppingBag,
   BarChart3,
   Menu,
-  X,
   TrendingUp,
   Clock,
   Shield,
@@ -20,9 +18,16 @@ import {
   Zap,
   LogOut,
 } from "lucide-react"
-import { useSession, signOut } from "next-auth/react"
+import { useAuth } from "./_providers/auth"
 import { useRouter } from "next/navigation"
 import { Dialog, DialogContent } from "./_components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from "./_components/ui/sheet"
 import { Button } from "./_components/ui/button"
 import SignInDialog from "./_components/sign-in-dialog"
 
@@ -35,20 +40,37 @@ export default function LandingPage() {
   const [loginOpen, setLoginOpen] = useState(false)
 
   const [loginTab, setLoginTab] = useState<"login" | "register">("login")
+  const [stripePrices, setStripePrices] = useState<{
+    barber: number | null
+    premium: number | null
+  } | null>(null)
 
   const openAuthModal = (tab: "login" | "register") => {
     setLoginTab(tab)
     setLoginOpen(true)
   }
-  const { data: session, status } = useSession()
+  const { user, signOut } = useAuth()
   const router = useRouter()
+
+  useEffect(() => {
+    const fetchPrices = async () => {
+      try {
+        const { getStripePrices } = await import("./_actions/get-stripe-prices")
+        const prices = await getStripePrices()
+        setStripePrices(prices)
+      } catch (error) {
+        console.error("Erro ao carregar preços:", error)
+      }
+    }
+    fetchPrices()
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
     window.addEventListener("scroll", handleScroll)
 
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [status, session, router])
+  }, [])
 
   const problems = [
     {
@@ -78,41 +100,47 @@ export default function LandingPage() {
       description:
         "Seu cliente marca o horário em segundos, de qualquer lugar, a qualquer hora.",
       highlight: true,
+      plan: "FREE",
     },
     {
-      icon: Zap,
-      title: "Lembretes Automáticos",
+      icon: MessageCircle,
+      title: "Lembretes via Sistema",
       description:
-        "Reduza faltas em até 80% com notificações automáticas via sistema.",
+        "Reduza faltas drasticamente com notificações automáticas para seus clientes.",
       highlight: true,
+      plan: "BARBER",
     },
     {
       icon: CreditCard,
-      title: "Pagamento Integrado",
+      title: "Pagamentos Antecipados",
       description:
-        "Receba via Stripe com segurança total e checkout simplificado.",
+        "Garanta seu faturamento com pagamentos via Stripe direto no agendamento.",
       highlight: false,
+      plan: "PREMIUM",
     },
     {
       icon: BarChart3,
       title: "Analytics de Elite",
       description:
-        "Dashboards financeiros completos para uma gestão baseada em dados.",
+        "Dashboards financeiros completos e controle de comissões automatizado.",
       highlight: false,
-    },
-    {
-      icon: Users,
-      title: "Gestão de Equipe",
-      description:
-        "Controle de comissões, horários e performance individual dos barbeiros.",
-      highlight: false,
+      plan: "BARBER",
     },
     {
       icon: ShoppingBag,
-      title: "PDV & Estoque",
+      title: "PDV & Frente de Caixa",
       description:
         "Venda produtos e controle seu estoque de forma integrada ao financeiro.",
       highlight: false,
+      plan: "PREMIUM",
+    },
+    {
+      icon: Shield,
+      title: "Gestão VIP",
+      description:
+        "Suporte prioritário e ferramentas avançadas para barbearias de alto nível.",
+      highlight: false,
+      plan: "PREMIUM",
     },
   ]
 
@@ -127,7 +155,7 @@ export default function LandingPage() {
     {
       question: "Como funciona o período de teste?",
       answer:
-        "Você tem 7 dias para explorar todas as funcionalidades do plano Premium sem precisar cadastrar cartão de crédito.",
+        "Você tem 15 dias para explorar todas as funcionalidades do plano Premium sem precisar cadastrar cartão de crédito.",
     },
     {
       question: "Posso cancelar a qualquer momento?",
@@ -186,13 +214,11 @@ export default function LandingPage() {
 
           {/* Auth Buttons (Right) */}
           <div className="hidden flex-1 items-center justify-end gap-4 md:flex">
-            {session?.user ? (
+            {user ? (
               <div className="flex items-center gap-4">
                 <span className="text-sm font-medium text-gray-400">
                   Olá,{" "}
-                  <span className="text-white">
-                    {session.user.name?.split(" ")[0]}
-                  </span>
+                  <span className="text-white">{user.name?.split(" ")[0]}</span>
                 </span>
                 <Button
                   className="group rounded-xl bg-[#2C78B2] px-6 font-bold text-white shadow-lg shadow-[#2C78B2]/20 hover:bg-[#1E5A8A]"
@@ -205,7 +231,7 @@ export default function LandingPage() {
                   variant="ghost"
                   size="icon"
                   className="rounded-xl text-gray-400 transition-all hover:bg-red-500/10 hover:text-red-500"
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={() => signOut()}
                   title="Sair do sistema"
                 >
                   <LogOut size={20} />
@@ -230,12 +256,108 @@ export default function LandingPage() {
             )}
           </div>
 
-          <button
-            className="text-white md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X /> : <Menu />}
-          </button>
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <button className="text-white md:hidden">
+                <Menu />
+              </button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="flex w-[85%] flex-col border-white/10 bg-[#0A0A0A] p-6 pt-12 text-white"
+            >
+              <SheetHeader className="mb-8 text-left">
+                <SheetTitle className="text-2xl font-bold text-white">
+                  Menu
+                </SheetTitle>
+              </SheetHeader>
+
+              <div className="flex flex-col gap-6">
+                <a
+                  href="#features"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-lg font-medium text-gray-400 transition-colors hover:text-[#2C78B2]"
+                >
+                  Funcionalidades
+                </a>
+                <a
+                  href="#plans"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-lg font-medium text-gray-400 transition-colors hover:text-[#2C78B2]"
+                >
+                  Planos
+                </a>
+                <a
+                  href="#faq"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-lg font-medium text-gray-400 transition-colors hover:text-[#2C78B2]"
+                >
+                  FAQ
+                </a>
+
+                <div className="mt-4 flex flex-col gap-4 border-t border-white/10 pt-8">
+                  {user ? (
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2C78B2]/10 text-sm font-bold text-[#2C78B2]">
+                          {user.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold">{user.name}</span>
+                          <span className="text-xs text-gray-500">
+                            Bem-vindo de volta
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        className="h-12 w-full rounded-xl bg-[#2C78B2] font-bold text-white shadow-lg shadow-[#2C78B2]/20 hover:bg-[#1E5A8A]"
+                        onClick={() => {
+                          setMobileMenuOpen(false)
+                          router.push("/dashboard")
+                        }}
+                      >
+                        Acessar Sistema
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="h-12 w-full justify-start gap-2 rounded-xl text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                        onClick={() => {
+                          setMobileMenuOpen(false)
+                          signOut()
+                        }}
+                      >
+                        <LogOut size={20} />
+                        Sair do sistema
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        className="h-12 w-full justify-start text-lg text-gray-300 hover:text-white"
+                        onClick={() => {
+                          setMobileMenuOpen(false)
+                          openAuthModal("login")
+                        }}
+                      >
+                        Entrar
+                      </Button>
+                      <Button
+                        className="h-12 w-full rounded-xl bg-[#2C78B2] text-lg font-bold text-white shadow-lg shadow-[#2C78B2]/20 hover:bg-[#1E5A8A]"
+                        onClick={() => {
+                          setMobileMenuOpen(false)
+                          openAuthModal("register")
+                        }}
+                      >
+                        Registrar
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </nav>
 
@@ -264,7 +386,7 @@ export default function LandingPage() {
               perfeição.
             </p>
             <div className="mt-12 flex flex-col items-center justify-center gap-4 delay-300 duration-1000 animate-in fade-in slide-in-from-bottom-6 sm:flex-row">
-              {session?.user ? (
+              {user ? (
                 <Button
                   size="lg"
                   className="group h-14 rounded-2xl bg-[#2C78B2] px-12 font-bold text-white shadow-2xl shadow-[#2C78B2]/30 transition-all hover:scale-105 hover:bg-[#1E5A8A] active:scale-95"
@@ -372,15 +494,31 @@ export default function LandingPage() {
             {features.map((feat, i) => (
               <div
                 key={i}
-                className={`rounded-3xl border p-8 transition-all ${feat.highlight ? "border-[#2C78B2]/20 bg-[#171717]" : "border-white/5 bg-transparent hover:bg-white/[0.02]"}`}
+                className={`relative overflow-hidden rounded-3xl border p-8 transition-all hover:scale-[1.02] ${feat.highlight ? "border-[#2C78B2]/20 bg-[#171717]" : "border-white/5 bg-transparent hover:bg-white/[0.02]"}`}
               >
-                <feat.icon
-                  className={`mb-6 h-8 w-8 ${feat.highlight ? "text-[#2C78B2]" : "text-gray-500"}`}
-                />
-                <h3 className="mb-3 text-xl font-bold">{feat.title}</h3>
-                <p className="text-sm leading-relaxed text-gray-400">
+                <div
+                  className={`mb-6 flex h-12 w-12 items-center justify-center rounded-xl ${feat.plan === "PREMIUM" ? "bg-[#D4AF37]/10 text-[#D4AF37]" : "bg-[#2C78B2]/10 text-[#2C78B2]"}`}
+                >
+                  <feat.icon className="h-6 w-6" />
+                </div>
+                <h3 className="mb-3 text-xl font-bold text-white">
+                  {feat.title}
+                </h3>
+                <p className="mb-4 text-sm leading-relaxed text-gray-400">
                   {feat.description}
                 </p>
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-widest ${feat.plan === "PREMIUM" ? "text-[#D4AF37]" : feat.plan === "BARBER" ? "text-[#2C78B2]" : "text-gray-500"}`}
+                >
+                  {feat.plan === "PREMIUM"
+                    ? "Exclusivo Premium"
+                    : feat.plan === "BARBER"
+                      ? "Disponível no Barber"
+                      : "Plano Gratuito"}
+                </span>
+                {feat.plan === "PREMIUM" && (
+                  <div className="absolute -right-8 -top-8 h-24 w-24 rotate-12 bg-[#D4AF37]/5 blur-2xl" />
+                )}
               </div>
             ))}
           </div>
@@ -399,7 +537,7 @@ export default function LandingPage() {
               grandes redes de barbearias de elite.
             </p>
           </div>
-          <PricingCards />
+          <PricingCards initialPrices={stripePrices} />
         </div>
       </section>
 

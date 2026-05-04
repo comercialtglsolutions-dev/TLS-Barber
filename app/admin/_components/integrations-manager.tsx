@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from "@/app/_components/ui/select"
 import { upsertBankCredential } from "@/app/_actions/upsert-bank-credential"
+import { upsertSettings } from "@/app/_actions/upsert-settings"
+import { Label } from "@/app/_components/ui/label"
 import { toast } from "sonner"
 import {
   CheckCircle2Icon,
@@ -153,6 +155,7 @@ const getBankHelpInstructions = (provider: string) => {
 
 interface IntegrationsManagerProps {
   banks: any[]
+  settings?: any
 }
 
 const getBankLogo = (provider: string, imageUrl: string) => {
@@ -167,13 +170,20 @@ const getBankLogo = (provider: string, imageUrl: string) => {
   return imageUrl
 }
 
-const IntegrationsManager = ({ banks }: IntegrationsManagerProps) => {
+const IntegrationsManager = ({ banks, settings }: IntegrationsManagerProps) => {
   const router = useRouter()
   const [selectedBank, setSelectedBank] = useState<any | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+
+  const [isPixDialogOpen, setIsPixDialogOpen] = useState(false)
+  const [pixConfig, setPixConfig] = useState({
+    pixKey: settings?.pixKey || "",
+    pixKeyType: settings?.pixKeyType || "CPF",
+    pixBeneficiary: settings?.pixBeneficiary || "",
+  })
 
   const [clientId, setClientId] = useState("")
   const [clientSecret, setClientSecret] = useState("")
@@ -271,6 +281,31 @@ const IntegrationsManager = ({ banks }: IntegrationsManagerProps) => {
     }
   }
 
+  const handleSavePix = async () => {
+    if (!pixConfig.pixKey || !pixConfig.pixBeneficiary) {
+      toast.error("Preencha a chave Pix e o Beneficiário")
+      return
+    }
+    try {
+      setIsLoading(true)
+      const payload = {
+        ...settings,
+        pixKey: pixConfig.pixKey,
+        pixKeyType: pixConfig.pixKeyType,
+        pixBeneficiary: pixConfig.pixBeneficiary,
+      } as any
+      if (payload.id) delete payload.id
+      await upsertSettings(payload)
+      toast.success("Chave Pix salva com sucesso!")
+      setIsPixDialogOpen(false)
+      router.refresh()
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao salvar chave Pix")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-0">
@@ -306,6 +341,67 @@ const IntegrationsManager = ({ banks }: IntegrationsManagerProps) => {
             : "flex flex-col gap-3"
         }
       >
+        {/* Pix Manual Card */}
+        {viewMode === "list" ? (
+          <div className="flex flex-row items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#1A1A1A] p-3 transition-colors hover:border-primary/50 lg:p-4">
+            <div className="flex min-w-0 flex-1 items-center gap-2 lg:gap-4">
+              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-emerald-500/10 lg:h-10 lg:w-10">
+                <LayoutGridIcon className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                  <h3 className="truncate text-xs font-bold text-white lg:text-base">
+                    Chave Pix (Manual)
+                  </h3>
+                  {settings?.pixKey && (
+                    <CheckCircle2Icon className="h-3.5 w-3.5 text-green-500" />
+                  )}
+                </div>
+                {settings?.pixKey && (
+                  <p className="truncate text-[9px] text-gray-400 lg:text-sm">
+                    {pixConfig.pixKeyType}: {pixConfig.pixKey}
+                  </p>
+                )}
+              </div>
+            </div>
+            <Button
+              variant={settings?.pixKey ? "outline" : "default"}
+              size="sm"
+              onClick={() => setIsPixDialogOpen(true)}
+            >
+              {settings?.pixKey ? "Editar" : "Configurar"}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-[#1A1A1A] p-4 transition-colors hover:border-primary/50 lg:gap-4 lg:p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 lg:gap-3">
+                <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-emerald-500/10 lg:h-10 lg:w-10">
+                  <LayoutGridIcon className="h-5 w-5 text-emerald-500" />
+                </div>
+                <h3 className="text-sm font-bold text-white lg:text-base">
+                  Chave Pix (Manual)
+                </h3>
+              </div>
+              {settings?.pixKey && (
+                <CheckCircle2Icon className="h-4 w-4 text-green-500 lg:h-6 lg:w-6" />
+              )}
+            </div>
+            <p className="min-h-[20px] text-xs text-gray-400 lg:min-h-[40px] lg:text-sm">
+              {settings?.pixKey
+                ? `Chave: ${pixConfig.pixKey}`
+                : "Receba via QR Code Pix diretamente em sua conta."}
+            </p>
+            <Button
+              variant={settings?.pixKey ? "outline" : "default"}
+              size="sm"
+              onClick={() => setIsPixDialogOpen(true)}
+            >
+              {settings?.pixKey ? "Editar Configuração" : "Configurar Chave"}
+            </Button>
+          </div>
+        )}
+
         {banks.map((bank) => {
           const credentials = Array.isArray(bank.credentials)
             ? bank.credentials[0]
@@ -464,6 +560,87 @@ const IntegrationsManager = ({ banks }: IntegrationsManagerProps) => {
           )
         })}
       </div>
+
+      <Dialog open={isPixDialogOpen} onOpenChange={setIsPixDialogOpen}>
+        <DialogContent className="border-white/10 bg-[#1A1A1A] sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              Configurar Chave Pix
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Receba pagamentos diretamente na sua conta sem taxas adicionais.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-widest text-gray-500">
+                Tipo de Chave *
+              </Label>
+              <Select
+                value={pixConfig.pixKeyType}
+                onValueChange={(v) =>
+                  setPixConfig({ ...pixConfig, pixKeyType: v })
+                }
+              >
+                <SelectTrigger className="border-white/10 bg-[#222]">
+                  <SelectValue placeholder="Selecione o tipo de chave" />
+                </SelectTrigger>
+                <SelectContent className="border-white/10 bg-[#1A1A1A]">
+                  <SelectItem value="CPF">CPF</SelectItem>
+                  <SelectItem value="CNPJ">CNPJ</SelectItem>
+                  <SelectItem value="EMAIL">E-mail</SelectItem>
+                  <SelectItem value="PHONE">Telefone</SelectItem>
+                  <SelectItem value="RANDOM">Chave Aleatória</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-widest text-gray-500">
+                Chave Pix *
+              </Label>
+              <Input
+                value={pixConfig.pixKey}
+                onChange={(e) =>
+                  setPixConfig({ ...pixConfig, pixKey: e.target.value })
+                }
+                placeholder="Sua chave Pix"
+                className="border-white/10 bg-white/5"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-widest text-gray-500">
+                Instituição Bancária *
+              </Label>
+              <Input
+                value={pixConfig.pixBeneficiary}
+                onChange={(e) =>
+                  setPixConfig({ ...pixConfig, pixBeneficiary: e.target.value })
+                }
+                placeholder="Ex: Banco do Brasil"
+                className="border-white/10 bg-white/5"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsPixDialogOpen(false)}
+              disabled={isLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSavePix}
+              disabled={isLoading}
+              className="bg-[#2C78B2] text-white hover:bg-[#1E5A8A]"
+            >
+              {isLoading ? "Salvando..." : "Salvar Configuração"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="border-white/10 bg-[#1A1A1A] sm:max-w-[450px]">

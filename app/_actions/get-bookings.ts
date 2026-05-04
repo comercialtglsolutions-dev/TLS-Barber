@@ -2,18 +2,23 @@
 
 import { endOfDay, startOfDay } from "date-fns"
 import { db } from "../_lib/prisma"
+import { createClient } from "../_lib/supabase/server"
 
 interface GetBookingsProps {
   serviceId: string
   date: Date
 }
 
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
-
 export const getBookings = async ({ date }: GetBookingsProps) => {
-  const session = await getServerSession(authOptions)
-  const barbershopId = (session?.user as any)?.barbershopId
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+
+  if (!authUser) return []
+
+  const user = await db.user.findUnique({ where: { id: authUser.id } })
+  const barbershopId = user?.barbershopId
 
   if (!barbershopId) return []
 

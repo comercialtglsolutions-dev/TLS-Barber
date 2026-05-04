@@ -1,8 +1,6 @@
-// @ts-nocheck
-"use client"
-
 import { useState } from "react"
-import { signIn } from "next-auth/react"
+import { createClient } from "../_lib/supabase/client"
+import { useRouter } from "next/navigation"
 import { Button } from "./ui/button"
 import { DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog"
 import Image from "next/image"
@@ -10,15 +8,15 @@ import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
-import { registerUser } from "@/app/_actions/register"
 
 const SignInDialog = ({
   defaultTab = "login",
   onClose,
 }: {
-  defaultTab?: "login" | "register"
+  defaultTab?: "login" | "register" | "forgot-password"
   onClose?: () => void
 }) => {
+  const [activeTab, setActiveTab] = useState(defaultTab)
   const [isLoading, setIsLoading] = useState(false)
   const [loginEmail, setLoginEmail] = useState("")
   const [loginPassword, setLoginPassword] = useState("")
@@ -31,9 +29,21 @@ const SignInDialog = ({
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [showRegPassword, setShowRegPassword] = useState(false)
 
-  const handleLoginWithGoogleClick = () => {
+  const supabase = createClient()
+  const router = useRouter()
+
+  const handleLoginWithGoogleClick = async () => {
     setIsLoading(true)
-    signIn("google", { callbackUrl: "/dashboard" })
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+    if (error) {
+      toast.error("Erro ao entrar com Google.")
+      setIsLoading(false)
+    }
   }
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -41,20 +51,48 @@ const SignInDialog = ({
     setIsLoading(true)
 
     try {
-      const result = await signIn("credentials", {
+      const { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: loginPassword,
-        redirect: false,
-        callbackUrl: "/dashboard",
       })
 
-      if (result?.error) {
+      if (error) {
         toast.error("E-mail ou senha incorretos.")
       } else {
+        toast.success("Login realizado com sucesso!")
         onClose?.()
+        router.refresh()
       }
     } catch (error) {
       toast.error("Ocorreu um erro ao tentar entrar.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!loginEmail) {
+      toast.error("Por favor, digite seu e-mail para recuperar a senha.")
+      return
+    }
+    setIsLoading(true)
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
+        redirectTo: `${window.location.origin}/update-password`,
+      })
+
+      if (error) {
+        toast.error(error.message)
+      } else {
+        toast.success(
+          "E-mail de recuperação enviado! Verifique sua caixa de entrada.",
+        )
+        setActiveTab("login")
+      }
+    } catch (error) {
+      toast.error("Erro ao enviar e-mail de recuperação.")
     } finally {
       setIsLoading(false)
     }
@@ -65,18 +103,23 @@ const SignInDialog = ({
     setIsLoading(true)
 
     try {
-      const result = await registerUser({
-        name: regName,
+      const { error } = await supabase.auth.signUp({
         email: regEmail,
         password: regPassword,
-        barbershopName: userType === "BARBER" ? barbershopName : undefined,
-        userType,
+        options: {
+          data: {
+            full_name: regName,
+            user_type: userType, // 'CLIENT' ou 'BARBER'
+            barbershop_name: userType === "BARBER" ? barbershopName : undefined,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       })
 
-      if ("error" in result) {
-        toast.error(result.error)
+      if (error) {
+        toast.error(error.message)
       } else {
-        toast.success("Conta criada com sucesso!")
+        toast.success("Verifique seu e-mail para confirmar a conta!")
         onClose?.()
       }
     } catch (error) {
@@ -88,7 +131,52 @@ const SignInDialog = ({
 
   return (
     <div className="flex flex-col gap-2 duration-300 animate-in fade-in zoom-in-95">
-      {defaultTab === "login" ? (
+      {activeTab === "forgot-password" ? (
+        <div className="flex flex-col gap-6">
+          <DialogHeader className="gap-1 text-center">
+            <DialogTitle className="text-2xl font-extrabold tracking-tight text-white">
+              Recuperar Senha
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-400">
+              Digite seu e-mail e enviaremos um link seguro para você redefinir
+              sua senha.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-email">E-mail</Label>
+              <Input
+                id="reset-email"
+                placeholder="Endereço de e-mail"
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                required
+                className="h-11 rounded-xl border-white/10 bg-white/5 transition-all focus:border-[#2C78B2]/50"
+              />
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-xl bg-[#2C78B2] font-bold text-white shadow-[0_4px_14px_0_rgba(44,120,178,0.3)] transition-all hover:bg-[#1E5A8A]"
+                disabled={isLoading}
+              >
+                Enviar link de recuperação
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-11 w-full rounded-xl text-gray-400 hover:text-white"
+                onClick={() => setActiveTab("login")}
+                disabled={isLoading}
+              >
+                Voltar para o login
+              </Button>
+            </div>
+          </form>
+        </div>
+      ) : activeTab === "login" ? (
         <div className="flex flex-col gap-6">
           <DialogHeader className="gap-1 text-center">
             <DialogTitle className="text-2xl font-extrabold tracking-tight text-white">
@@ -130,6 +218,15 @@ const SignInDialog = ({
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-white"
                 >
                   {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("forgot-password")}
+                  className="text-xs font-medium text-[#2C78B2] hover:underline"
+                >
+                  Esqueci minha senha
                 </button>
               </div>
             </div>

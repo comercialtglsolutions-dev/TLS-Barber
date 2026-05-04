@@ -7,6 +7,7 @@ import { ptBR } from "date-fns/locale"
 interface BookingSummaryProps {
   service: Pick<Service, "name" | "price"> | null | undefined
   isConfirmed?: boolean
+  isPendingPix?: boolean
   barbershop: {
     name: string
   }
@@ -18,6 +19,7 @@ const BookingSummary = ({
   barbershop,
   selectedDate,
   isConfirmed,
+  isPendingPix,
 }: BookingSummaryProps) => {
   return (
     <Card className="rounded-xl">
@@ -54,14 +56,22 @@ const BookingSummary = ({
         </div>
         <div className="flex items-center justify-between">
           <h2 className="text-sm text-gray-400">Status</h2>
-          {isConfirmed !== undefined && (
-            <Badge
-              className={`w-fit ${isConfirmed ? "border-[#22c55e] text-[#22c55e]" : "border-gray-400 text-gray-400"}`}
-              variant="outline"
-            >
-              {isConfirmed ? "Confirmado" : "Finalizado"}
-            </Badge>
-          )}
+          <Badge
+            className={`w-fit ${
+              isConfirmed
+                ? "border-[#22c55e] text-[#22c55e]"
+                : isPendingPix
+                  ? "border-yellow-500 text-yellow-500"
+                  : "border-gray-400 text-gray-400"
+            }`}
+            variant="outline"
+          >
+            {isConfirmed
+              ? "Confirmado"
+              : isPendingPix
+                ? "Aguardando Pix"
+                : "Finalizado"}
+          </Badge>
         </div>
         {(service as any)?.paymentStatus && (
           <div className="flex items-center justify-between border-t border-white/5 pt-2">

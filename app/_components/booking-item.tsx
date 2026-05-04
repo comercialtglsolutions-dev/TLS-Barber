@@ -32,38 +32,50 @@ import { deleteBooking } from "../_actions/delete-bookings"
 import { toast } from "sonner"
 import { useState } from "react"
 import BookingSummary from "./booking-summary"
-import { useSession } from "next-auth/react"
+import { useAuth } from "../_providers/auth"
+import { cn } from "@/app/_lib/utils"
 
 interface BookingItemProps {
   booking: Prisma.BookingGetPayload<{
     include: {
       service: true
       combo: true
+      barbershop: {
+        include: {
+          settings: true
+        }
+      }
     }
   }>
-  settings?: any // Using any to avoid type issues for now, or define a subset type
+  settings?: any
 }
 
-// TODO: receber agendamento como prop
 const BookingItem = ({ booking, settings }: BookingItemProps) => {
-  const { data: session } = useSession()
+  const { profile } = useAuth()
   const [isSheetOpen, setIsSheetOpen] = useState(false)
 
-  // Use settings if available, otherwise mock
-  const barbershop = settings
-    ? {
-        name: settings.name,
-        address: settings.address,
-        imageUrl: settings.imageUrl,
-        phones: settings.phones || [],
-      }
-    : {
-        name: "GB Barbearia",
-        address: "Rua das Doninhas, 253 - Cotia, SP",
-        imageUrl: "/Logo-GB.jpeg",
-        phones: ["(11) 99999-9999"],
-      }
-  const isConfirmed = isFuture(booking.date)
+  const barbershop =
+    booking.barbershop?.settings ||
+    (settings
+      ? {
+          name: settings.name,
+          address: settings.address,
+          imageUrl: settings.imageUrl,
+          phones: settings.phones || [],
+        }
+      : {
+          name: "GB Barbearia",
+          address: "Rua das Doninhas, 253 - Cotia, SP",
+          imageUrl: "/Logo-GB.jpeg",
+          phones: ["(11) 99999-9999"],
+        })
+
+  const isConfirmed =
+    isFuture(booking.date) && (booking.paymentStatus as string) === "SUCCEEDED"
+  const isPendingPix =
+    isFuture(booking.date) &&
+    (booking.paymentStatus as string) === "PENDING_VERIFICATION"
+
   const handleCancelBooking = async () => {
     try {
       await deleteBooking(booking.id)
@@ -74,21 +86,35 @@ const BookingItem = ({ booking, settings }: BookingItemProps) => {
       toast.error("Erro ao cancelar reserva. Tente novamente.")
     }
   }
+
   const handleSheetOpenChange = (isOpen: boolean) => {
     setIsSheetOpen(isOpen)
   }
+
+  const isAdmin = profile?.role === "ADMIN"
+
   return (
     <Sheet open={isSheetOpen} onOpenChange={handleSheetOpenChange}>
-      <SheetTrigger className="w-full min-w-[90%] rounded-xl border-white bg-[#3EABFD]">
-        <Card className="min-w-[90%]">
+      <SheetTrigger className="w-full min-w-[90%] rounded-xl border-white bg-[#3EABFD] lg:min-w-[450px]">
+        <Card className="min-w-[90%] lg:min-w-[450px]">
           <CardContent className="flex justify-between p-0">
-            {/* ESQUERDA */}
             <div className="flex flex-col gap-2 py-5 pl-5">
               <Badge
-                className={`w-fit ${isConfirmed ? "border-[#22c55e] text-[#22c55e]" : "border-gray-400 text-gray-400"}`}
+                className={cn(
+                  "w-fit",
+                  isConfirmed && "border-[#22c55e] text-[#22c55e]",
+                  isPendingPix && "border-yellow-500 text-yellow-500",
+                  !isConfirmed &&
+                    !isPendingPix &&
+                    "border-gray-400 text-gray-400",
+                )}
                 variant="outline"
               >
-                {isConfirmed ? "Confirmado" : "Finalizado"}
+                {isConfirmed
+                  ? "Confirmado"
+                  : isPendingPix
+                    ? "Aguardando Pix"
+                    : "Finalizado"}
               </Badge>
               <h3 className="font-semibold text-white">
                 {booking.service?.name ||
@@ -103,7 +129,6 @@ const BookingItem = ({ booking, settings }: BookingItemProps) => {
                 <p className="text-sm text-white">{barbershop.name}</p>
               </div>
             </div>
-            {/* DIREITA */}
             <div className="flex flex-col items-center justify-center border-l-2 border-solid px-5">
               <p className="text-sm capitalize text-white">
                 {format(booking.date, "MMMM", { locale: ptBR })}
@@ -159,6 +184,7 @@ const BookingItem = ({ booking, settings }: BookingItemProps) => {
               }
               selectedDate={booking.date}
               isConfirmed={isConfirmed}
+              isPendingPix={isPendingPix}
             />
           </div>
 
@@ -175,7 +201,7 @@ const BookingItem = ({ booking, settings }: BookingItemProps) => {
                 Voltar
               </Button>
             </SheetClose>
-            {isConfirmed && (session?.user as any)?.role === "ADMIN" && (
+            {isConfirmed && isAdmin && (
               <Dialog>
                 <DialogTrigger className="w-full rounded-xl border border-red-500">
                   <Button variant="destructive" className="w-full text-white">

@@ -11,7 +11,7 @@ import { Button } from "./ui/button"
 import { useState } from "react"
 import Image from "next/image"
 import { toast } from "sonner"
-import { useSession } from "next-auth/react"
+import { useAuth } from "../_providers/auth"
 import { MinusIcon, PlusIcon } from "lucide-react"
 import SignInDialog from "./sign-in-dialog"
 import { Dialog, DialogContent } from "./ui/dialog"
@@ -24,6 +24,7 @@ interface ProductPurchaseSheetProps {
     description: string
     imageUrl: string
     price: number
+    barbershopId: string
   }
   isOpen: boolean
   onClose: () => void
@@ -34,7 +35,7 @@ const ProductPurchaseSheet = ({
   isOpen,
   onClose,
 }: ProductPurchaseSheetProps) => {
-  const { data: session } = useSession()
+  const { user } = useAuth()
   const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(false)
   const [isSignInDialogOpen, setIsSignInDialogOpen] = useState(false)
@@ -45,6 +46,7 @@ const ProductPurchaseSheet = ({
     serviceName: string
     itemId: string
     type: "SERVICE" | "PRODUCT"
+    barbershopId: string
   } | null>(null)
 
   const handleIncreaseQuantity = () => setQuantity((prev) => prev + 1)
@@ -52,7 +54,7 @@ const ProductPurchaseSheet = ({
     setQuantity((prev) => (prev > 1 ? prev - 1 : 1))
 
   const handlePurchase = async () => {
-    if (!session?.user) {
+    if (!user) {
       setIsSignInDialogOpen(true)
       return
     }
@@ -82,6 +84,7 @@ const ProductPurchaseSheet = ({
           serviceName: checkoutResponse.name,
           itemId: product.id,
           type: "PRODUCT",
+          barbershopId: product.barbershopId,
         })
         setIsPaymentModalOpen(true)
         return
@@ -186,6 +189,7 @@ const ProductPurchaseSheet = ({
         serviceName={paymentData?.serviceName || ""}
         itemId={paymentData?.itemId || ""}
         type={paymentData?.type || "PRODUCT"}
+        barbershopId={paymentData?.barbershopId || product.barbershopId}
       />
     </>
   )

@@ -1,15 +1,18 @@
 "use server"
 
 import { db } from "../_lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 import { stripe } from "../_lib/stripe"
 
 export const getSubscriptionData = async () => {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) return null
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  const userId = (session.user as any).id
+  if (!authUser) return null
+
+  const userId = authUser.id
 
   // Usar query bruta para evitar erros de validação do Prisma Client
   const users: any[] = await db.$queryRawUnsafe(
@@ -47,58 +50,66 @@ export const getSubscriptionData = async () => {
 
   if (customerId) {
     try {
+      // Busca todas as assinaturas do cliente para verificar status (incluindo trialing)
       const subscriptions = await stripe.subscriptions.list({
         customer: customerId,
-        status: "active",
+        status: "all", // Buscamos todas e filtramos no código para ser mais flexível
         expand: ["data.default_payment_method"],
         limit: 1,
       })
 
+      console.log(
+        `[Stripe] Encontradas ${subscriptions.data.length} assinaturas para o cliente ${customerId}`,
+      )
+
       if (subscriptions.data.length > 0) {
         const sub = subscriptions.data[0] as any
-        const paymentMethod = sub.default_payment_method as any
-        const priceId = sub.items.data[0].price.id
 
-        // Mapeamento de planos (igual ao webhook)
-        const planMapping: Record<string, string> = {
-          [(process.env.STRIPE_BARBER_PRICE_ID || "").trim()]: "BARBER",
-          [(process.env.STRIPE_PREMIUM_PRICE_ID || "").trim()]: "PREMIUM",
-        }
+        // Só processamos se for ativa ou trialing
+        if (sub.status === "active" || sub.status === "trialing") {
+          const paymentMethod = sub.default_payment_method as any
+          const priceId = sub.items.data[0].price.id
 
-        const activePlan = planMapping[priceId]
+          // Mapeamento de planos (igual ao webhook)
+          const planMapping: Record<string, string> = {
+            [(process.env.STRIPE_BARBER_PRICE_ID || "").trim()]: "BARBER",
+            [(process.env.STRIPE_PREMIUM_PRICE_ID || "").trim()]: "PREMIUM",
+          }
 
-        // Se o plano no banco estiver desatualizado, sincroniza agora!
-        if (activePlan && activePlan !== user.subscriptionPlan) {
-          await db.$executeRawUnsafe(
-            `UPDATE "User" SET "subscriptionPlan" = $1::"SubscriptionPlan" WHERE "id" = $2`,
-            activePlan,
-            userId,
+          const activePlan = planMapping[priceId]
+
+          // Se o plano no banco estiver desatualizado, sincroniza agora!
+          if (activePlan && activePlan !== user.subscriptionPlan) {
+            await db.$executeRawUnsafe(
+              `UPDATE "User" SET "subscriptionPlan" = $1::"SubscriptionPlan" WHERE "id" = $2`,
+              activePlan,
+              userId,
+            )
+            user.subscriptionPlan = activePlan
+          }
+
+          // LÓGICA DE DATA:
+          // 1. Prioridade: current_period_end (fim do ciclo atual)
+          // 2. Se estiver em trial: trial_end
+          let nextInvoiceTimestamp = sub.current_period_end * 1000
+
+          if (sub.trial_end && sub.trial_end * 1000 > Date.now()) {
+            nextInvoiceTimestamp = sub.trial_end * 1000
+          }
+
+          stripeDetails = {
+            currentPeriodEnd: nextInvoiceTimestamp,
+            currentPeriodStart: sub.current_period_start * 1000,
+            amount: sub.items.data[0].plan.amount! / 100,
+            cardBrand: paymentMethod?.card?.brand || "CARTÃO",
+            cardLast4: paymentMethod?.card?.last4 || "****",
+            planName: activePlan || "ATIVO",
+            status: sub.status,
+          }
+        } else {
+          console.log(
+            `[Stripe] Assinatura encontrada mas com status: ${sub.status}`,
           )
-          user.subscriptionPlan = activePlan
-        }
-
-        // LÓGICA DE DATA:
-        // 1. Prioridade: current_period_end (fim do ciclo atual)
-        // 2. Se estiver em trial: trial_end
-        // 3. Fallback: created (data de criação) + 1 mês
-        let nextInvoiceTimestamp = sub.current_period_end * 1000
-
-        if (sub.trial_end && sub.trial_end * 1000 > Date.now()) {
-          nextInvoiceTimestamp = sub.trial_end * 1000
-        } else if (!nextInvoiceTimestamp) {
-          // Fallback manual: Criação + 30 dias (aprox 1 mês)
-          const createdDate = new Date(sub.created * 1000)
-          createdDate.setMonth(createdDate.getMonth() + 1)
-          nextInvoiceTimestamp = createdDate.getTime()
-        }
-
-        stripeDetails = {
-          currentPeriodEnd: nextInvoiceTimestamp,
-          currentPeriodStart: sub.current_period_start * 1000,
-          amount: sub.items.data[0].plan.amount! / 100,
-          cardBrand: paymentMethod?.card?.brand || "CARTÃO",
-          cardLast4: paymentMethod?.card?.last4 || "****",
-          planName: activePlan,
         }
       }
     } catch (error) {

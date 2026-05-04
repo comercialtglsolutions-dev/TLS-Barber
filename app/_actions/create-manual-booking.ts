@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { db } from "../_lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 import { setHours, setMinutes } from "date-fns"
 
 interface CreateManualBookingParams {
@@ -17,9 +16,16 @@ interface CreateManualBookingParams {
 export const createManualBooking = async (
   params: CreateManualBookingParams,
 ) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if ((session?.user as any)?.role !== "ADMIN") {
+  if (!authUser) throw new Error("Não autorizado")
+
+  const user = await db.user.findUnique({ where: { id: authUser.id } })
+
+  if (user?.role !== "ADMIN") {
     throw new Error(
       "Acesso negado. Apenas administradores podem criar agendamentos manuais.",
     )
@@ -28,11 +34,11 @@ export const createManualBooking = async (
   const [hours, minutes] = params.hour.split(":").map(Number)
   const bookingDate = setHours(setMinutes(params.date, minutes), hours)
 
-  if (!session?.user) {
-    throw new Error("Não autorizado")
-  }
+  const barbershopId = user.barbershopId
 
-  const barbershopId = (session.user as any).barbershopId
+  if (!barbershopId) {
+    throw new Error("Barbearia não vinculada")
+  }
 
   // Verificar se já existe agendamento no mesmo horário
   const existingBooking = await (db as any).booking.findFirst({

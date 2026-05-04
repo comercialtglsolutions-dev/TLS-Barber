@@ -1,6 +1,6 @@
 generator client {
   provider   = "prisma-client-js"
-  engineType = "binary"
+  engineType = "library"
 }
 
 datasource db {
@@ -44,9 +44,11 @@ model Barbershop {
   purchases           Purchase[]
   combos              Combo[]
   banks               Bank[]
+  onboardingCompleted Boolean              @default(false)
   settings            Settings?
   operatingDays       OperatingDay[]
   operatingExceptions OperatingException[]
+  barbers             Barber[]
 }
 
 enum SubscriptionPlan {
@@ -92,21 +94,24 @@ model VerificationToken {
 }
 
 model Settings {
-  id           String     @id @default(uuid())
-  barbershopId String     @unique
-  name         String
-  address      String
-  phones       String[]
-  description  String
-  imageUrl     String
-  instagramUrl String?
-  whatsappUrl  String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  endHour      String     @default("19:00")
-  startHour    String     @default("09:00")
-  trialDays    Int        @default(15)
-  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+  id              String     @id @default(uuid())
+  barbershopId    String     @unique
+  name            String
+  address         String
+  phones          String[]
+  description     String
+  imageUrl        String
+  instagramUrl    String?
+  whatsappUrl     String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  endHour         String     @default("19:00")
+  startHour       String     @default("09:00")
+  trialDays       Int        @default(15)
+  pixKey          String?
+  pixKeyType      String?
+  pixBeneficiary  String?
+  barbershop      Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
 }
 
 model OperatingDay {
@@ -176,11 +181,27 @@ model Booking {
   updatedAt               DateTime       @updatedAt
   paymentStatus           PaymentStatus?
   stripeCheckoutSessionId String?
+  barberId                String?
   comboId                 String?
+  barber                  Barber?        @relation(fields: [barberId], references: [id])
   combo                   Combo?         @relation(fields: [comboId], references: [id])
   service                 Service?       @relation(fields: [serviceId], references: [id])
   user                    User           @relation(fields: [userId], references: [id])
   barbershop              Barbershop     @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+}
+
+model Barber {
+  id           String     @id @default(uuid())
+  barbershopId String
+  name         String
+  imageUrl     String?
+  description  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  bookings     Booking[]
+  barbershop   Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
+
+  @@unique([barbershopId, name])
 }
 
 model Purchase {
@@ -247,6 +268,7 @@ model BankCredential {
 
 enum PaymentStatus {
   PENDING
+  PENDING_VERIFICATION
   SUCCEEDED
   FAILED
 }

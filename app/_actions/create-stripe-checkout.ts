@@ -1,18 +1,20 @@
 "use server"
 
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 import { stripe } from "../_lib/stripe"
 
 export const createStripeCheckout = async (priceId: string) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user) {
+  if (!authUser) {
     throw new Error("Você precisa estar logado para realizar uma assinatura.")
   }
 
-  const userId = (session.user as any).id
-  const userEmail = session.user.email
+  const userId = authUser.id
+  const userEmail = authUser.email
 
   // Cria a sessão de checkout no Stripe
   const checkoutSession = await stripe.checkout.sessions.create({

@@ -59,29 +59,7 @@ export const registerUser = async (data: any) => {
 
         barbershopId = barbershop.id
 
-        // 2. Create Default Settings
-        await tx.settings.create({
-          data: {
-            barbershopId: barbershop.id,
-            name: barbershopName,
-            address: "Endereço da Barbearia",
-            description: "Bem-vindo à nossa barbearia!",
-            imageUrl:
-              "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=2070&auto=format&fit=crop",
-            phones: [],
-            trialDays: 15,
-          },
-        })
-
-        // 3. Create Default Operating Days
-        const days = [0, 1, 2, 3, 4, 5, 6]
-        await tx.operatingDay.createMany({
-          data: days.map((day) => ({
-            barbershopId: barbershop.id,
-            dayOfWeek: day,
-            isOpen: day !== 0,
-          })),
-        })
+        // The Settings and OperatingDays will be created by the mandatory Onboarding Wizard.
       }
 
       // Calculate trial for Barbers

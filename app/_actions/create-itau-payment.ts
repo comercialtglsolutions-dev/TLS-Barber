@@ -2,8 +2,7 @@
 
 import { db } from "@/app/_lib/prisma"
 import { decrypt } from "@/app/_lib/encryption"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 import crypto from "crypto"
 import QRCode from "qrcode"
 
@@ -13,12 +12,16 @@ export async function createItauPayment(params: {
   method: "pix"
   metadata?: any
 }) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) throw new Error("Não autorizado")
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+  if (!authUser) throw new Error("Não autorizado")
 
   // 1. Get Item Data
   let title = ""
   let price = 0
+  let barbershopId = ""
 
   if (params.type === "SERVICE") {
     if (params.itemId.startsWith("combined_")) {
@@ -30,6 +33,7 @@ export async function createItauPayment(params: {
 
       title = orderedServices.map((s) => s.name).join(" + ")
       price = orderedServices.reduce((acc, s) => acc + Number(s.price), 0)
+      barbershopId = orderedServices[0]?.barbershopId || ""
     } else {
       const service = await db.service.findUnique({
         where: { id: params.itemId },
@@ -37,13 +41,15 @@ export async function createItauPayment(params: {
       if (service) {
         title = service.name
         price = Number(service.price)
+        barbershopId = service.barbershopId
       } else {
-        const combo = await db.combo.findUnique({
+        const combo = (await db.combo.findUnique({
           where: { id: params.itemId },
-        })
+        })) as any
         if (!combo) throw new Error("Serviço ou Combo não encontrado.")
         title = combo.name
         price = Number(combo.price)
+        barbershopId = combo.barbershopId
       }
     }
   } else {
@@ -53,12 +59,13 @@ export async function createItauPayment(params: {
     if (!product) throw new Error("Produto não encontrado")
     title = product.name
     price = Number(product.price)
+    barbershopId = product.barbershopId
   }
 
   // 2. Get Credentials
   const credential = (await db.bankCredential.findFirst({
     where: {
-      bank: { provider: "ITAU" },
+      bank: { provider: "ITAU", barbershopId: barbershopId },
     },
     include: { bank: true },
   })) as any
@@ -103,9 +110,7 @@ export async function createItauPayment(params: {
 
   const accessToken = authData.access_token
 
-  // 4. Create Pix (Exemplo simplificado para Bacen API)
-  // O endpoint exato pode variar se o Itaú usar uma estrutura interna,
-  // mas o padrão Bacen é /v2/cob/ ou similar.
+  // 4. Create Pix
   const txid = crypto.randomBytes(16).toString("hex")
 
   const payload = {
@@ -115,12 +120,9 @@ export async function createItauPayment(params: {
     valor: {
       original: price.toFixed(2),
     },
-    chave: "04085461000109", // Chave Pix (CNPJ de teste Itaú Sandbox). Em produção, use sua chave real.
+    chave: "04085461000109", // Chave Pix (CNPJ de teste Itaú Sandbox)
     solicitacaoPagador: `Pagamento: ${title}`,
   }
-
-  // Nota: Para Itaú Sandbox, eles costumam exigir uma "chave" de teste específica.
-  // Muitas vezes no sandbox esse campo é ignorado ou aceita qualquer valor válido.
 
   const paymentResponse = await fetch(`${API_URL}/cob/${txid}`, {
     method: "PUT",

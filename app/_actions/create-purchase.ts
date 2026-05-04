@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { db } from "../_lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 
 interface CreatePurchaseParams {
   productId: string
@@ -11,15 +10,17 @@ interface CreatePurchaseParams {
 }
 
 export const createPurchase = async (params: CreatePurchaseParams) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user || !(session.user as any).id) {
+  if (!authUser) {
     throw new Error("Usuário não autenticado!")
   }
 
   const product = (await db.product.findUnique({
     where: { id: params.productId },
-    // @ts-ignore
     select: { barbershopId: true },
   })) as any
 
@@ -31,7 +32,7 @@ export const createPurchase = async (params: CreatePurchaseParams) => {
     data: {
       productId: params.productId,
       quantity: params.quantity,
-      userId: (session.user as any).id,
+      userId: authUser.id,
       barbershopId: product.barbershopId,
     } as any,
   })

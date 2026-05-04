@@ -1,13 +1,22 @@
 "use server"
 
 import { db } from "@/app/_lib/prisma"
-
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 
 export const getBanks = async () => {
-  const session = await getServerSession(authOptions)
-  const barbershopId = (session?.user as any)?.barbershopId
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+
+  if (!authUser) return []
+
+  const user = await db.user.findUnique({
+    where: { id: authUser.id },
+    select: { barbershopId: true },
+  })
+
+  const barbershopId = user?.barbershopId
 
   if (!barbershopId) return []
 

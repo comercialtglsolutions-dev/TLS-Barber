@@ -14,6 +14,7 @@ interface ProductItemProps {
     description: string
     imageUrl: string
     price: number
+    barbershopId: string
   }
 }
 

@@ -3,8 +3,7 @@
 import { db } from "@/app/_lib/prisma"
 import { serviceSchema } from "../admin/_schemas"
 import { revalidatePath } from "next/cache"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 import { getPlanLimits } from "../_lib/subscription-limits"
 
 export const upsertService = async (params: {
@@ -14,26 +13,37 @@ export const upsertService = async (params: {
   imageUrl: string
   price: number
 }) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  if (!authUser) throw new Error("Não autorizado")
+
+  const user = await db.user.findUnique({
+    where: { id: authUser.id },
+    select: {
+      id: true,
+      role: true,
+      barbershopId: true,
+      subscriptionPlan: true,
+    },
+  })
+
+  if (user?.role !== "ADMIN") {
     throw new Error("Não autorizado")
   }
 
   const { id, name, description, imageUrl, price } = serviceSchema.parse(params)
+  const barbershopId = user.barbershopId
 
-  const barbershopId = (session.user as any).barbershopId
+  if (!barbershopId) {
+    throw new Error("Barbearia não encontrada")
+  }
 
   // VERIFICAÇÃO DE LIMITES DO PLANO
   if (!id) {
-    const user = (await db.user.findUnique({
-      where: { id: (session.user as any).id },
-      // @ts-ignore
-      select: { subscriptionPlan: true },
-    })) as any
-
     const count = await db.service.count({
-      // @ts-ignore
       where: { barbershopId },
     })
 
@@ -46,17 +56,19 @@ export const upsertService = async (params: {
     }
   }
 
+  let result
   if (id) {
-    await (db as any).service.update({
+    result = await (db as any).service.update({
       where: { id, barbershopId },
       data: { name, description, imageUrl, price },
     })
   } else {
-    await (db as any).service.create({
+    result = await (db as any).service.create({
       data: { name, description, imageUrl, price, barbershopId },
     })
   }
 
   revalidatePath("/admin")
   revalidatePath("/")
+  return result
 }

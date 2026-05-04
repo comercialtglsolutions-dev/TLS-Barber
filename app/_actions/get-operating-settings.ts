@@ -1,16 +1,24 @@
 "use server"
 
 import { db } from "../_lib/prisma"
-
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 
 export const getOperatingDays = async (barbershopId?: string) => {
   let finalBarbershopId = barbershopId
 
   if (!finalBarbershopId) {
-    const session = await getServerSession(authOptions)
-    finalBarbershopId = (session?.user as any)?.barbershopId
+    const supabase = createClient()
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser()
+
+    if (authUser) {
+      const user = await db.user.findUnique({
+        where: { id: authUser.id },
+        select: { barbershopId: true },
+      })
+      finalBarbershopId = user?.barbershopId || undefined
+    }
   }
 
   if (!finalBarbershopId) return []
@@ -27,8 +35,18 @@ export const getOperatingExceptions = async (barbershopId?: string) => {
   let finalBarbershopId = barbershopId
 
   if (!finalBarbershopId) {
-    const session = await getServerSession(authOptions)
-    finalBarbershopId = (session?.user as any)?.barbershopId
+    const supabase = createClient()
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser()
+
+    if (authUser) {
+      const user = await db.user.findUnique({
+        where: { id: authUser.id },
+        select: { barbershopId: true },
+      })
+      finalBarbershopId = user?.barbershopId || undefined
+    }
   }
 
   if (!finalBarbershopId) return []

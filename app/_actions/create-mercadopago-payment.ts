@@ -2,8 +2,7 @@
 
 import { db } from "@/app/_lib/prisma"
 import { decrypt } from "@/app/_lib/encryption"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/_lib/auth"
+import { createClient } from "@/app/_lib/supabase/server"
 import crypto from "crypto"
 
 export async function createMercadoPagoPayment(params: {
@@ -12,8 +11,11 @@ export async function createMercadoPagoPayment(params: {
   method: "pix" | "card"
   metadata?: any
 }) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) throw new Error("Não autorizado")
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+  if (!authUser) throw new Error("Não autorizado")
 
   // 1. Get Item Data
   let title = ""
@@ -62,7 +64,7 @@ export async function createMercadoPagoPayment(params: {
   // 2. Get Credentials
   const credential = (await db.bankCredential.findFirst({
     where: {
-      bank: { provider: "MERCADO_PAGO" },
+      bank: { provider: "MERCADO_PAGO", barbershopId: barbershopId },
     },
     include: { bank: true },
   })) as any
@@ -73,8 +75,6 @@ export async function createMercadoPagoPayment(params: {
 
   const accessToken = decrypt(credential.clientSecret)
 
-  // Verificação de segurança: Se o decrypt falhou (retornou o texto original com ":"),
-  // precisamos avisar o usuário para salvar novamente.
   if (accessToken.includes(":")) {
     throw new Error(
       "Suas credenciais do Mercado Pago estão ilegíveis (Erro de Chave). Por favor, vá ao Painel Admin e salve novamente seu Access Token.",
@@ -86,13 +86,12 @@ export async function createMercadoPagoPayment(params: {
     "",
   )
 
-  // Mercado Pago não aceita localhost na notification_url e exige HTTPS em produção
   const isLocal = appUrl.includes("localhost")
   const notificationUrl = isLocal
     ? undefined
     : `${appUrl}/api/webhooks/mercadopago`
 
-  const externalReference = `${(session.user as any).id}_${params.itemId}_${Date.now()}`
+  const externalReference = `${authUser.id}_${params.itemId}_${Date.now()}`
 
   // 3. Create Payment based on method
   if (params.method === "pix") {
@@ -108,13 +107,16 @@ export async function createMercadoPagoPayment(params: {
         description: `Agendamento: ${title}`,
         payment_method_id: "pix",
         payer: {
-          email: session.user.email,
-          first_name: session.user.name?.split(" ")[0] || "Cliente",
-          last_name: session.user.name?.split(" ").slice(1).join(" ") || "TGL",
+          email: authUser.email,
+          first_name:
+            authUser.user_metadata?.full_name?.split(" ")[0] || "Cliente",
+          last_name:
+            authUser.user_metadata?.full_name?.split(" ").slice(1).join(" ") ||
+            "TGL",
         },
         external_reference: externalReference,
         metadata: {
-          user_id: (session.user as any).id,
+          user_id: authUser.id,
           item_id: params.itemId,
           type: params.type,
           barbershop_id: barbershopId,
@@ -144,7 +146,6 @@ export async function createMercadoPagoPayment(params: {
       method: "pix",
     }
   } else {
-    // Para CARTÃO, usamos o Checkout Pro (Preference) para máxima profissionalismo e segurança
     const response = await fetch(
       "https://api.mercadopago.com/checkout/preferences",
       {
@@ -158,7 +159,7 @@ export async function createMercadoPagoPayment(params: {
             { title, quantity: 1, currency_id: "BRL", unit_price: price },
           ],
           metadata: {
-            user_id: (session.user as any).id,
+            user_id: authUser.id,
             item_id: params.itemId,
             type: params.type,
             barbershop_id: barbershopId,

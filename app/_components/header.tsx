@@ -8,22 +8,26 @@ import { Sheet, SheetTrigger } from "./ui/sheet"
 import SidebarSheet from "./sidebar-sheet"
 import Notifications from "./notifications"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
+import { useAuth } from "../_providers/auth"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 const Header = () => {
-  const { data } = useSession()
+  const { user, profile } = useAuth()
   const router = useRouter()
 
   const handleBookingsClick = () => {
-    if (!data?.user) {
+    if (!user) {
       return toast.error(
         "Você precisa estar logado para ver seus agendamentos.",
       )
     }
     router.push("/bookings")
   }
+
+  const role = profile?.role
+  const subscriptionPlan = profile?.subscriptionPlan
+  const trialEndsAt = profile?.trialEndsAt
 
   return (
     <Card>
@@ -32,11 +36,7 @@ const Header = () => {
         <div className="flex items-center gap-6">
           <Link
             href={
-              data?.user
-                ? (data.user as any).role === "ADMIN"
-                  ? "/dashboard"
-                  : "/barbershops"
-                : "/"
+              user ? (role === "ADMIN" ? "/dashboard" : "/barbershops") : "/"
             }
           >
             <Image
@@ -49,28 +49,24 @@ const Header = () => {
           </Link>
 
           {/* TRIAL BADGE - ONLY FOR ADMIN AND FREE PLAN */}
-          {data?.user &&
-            (data.user as any).role === "ADMIN" &&
-            (data.user as any).subscriptionPlan === "FREE" && (
-              <div className="hidden items-center gap-2 rounded-full border border-[#2C78B2]/20 bg-[#2C78B2]/10 px-3 py-1.5 md:flex">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2C78B2]" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#2C78B2]">
-                  Teste:{" "}
-                  {(() => {
-                    const endsAt = (data.user as any).trialEndsAt
-                    if (!endsAt) return 0
-                    const now = new Date()
-                    const end = new Date(endsAt)
-                    const diffInMs = end.getTime() - now.getTime()
-                    const diffInDays = Math.ceil(
-                      diffInMs / (1000 * 60 * 60 * 24),
-                    )
-                    return diffInDays > 0 ? diffInDays : 0
-                  })()}{" "}
-                  dias
-                </span>
-              </div>
-            )}
+          {user && role === "ADMIN" && subscriptionPlan === "FREE" && (
+            <div className="hidden items-center gap-2 rounded-full border border-[#2C78B2]/20 bg-[#2C78B2]/10 px-3 py-1.5 md:flex">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2C78B2]" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#2C78B2]">
+                Teste:{" "}
+                {(() => {
+                  const endsAt = trialEndsAt
+                  if (!endsAt) return 0
+                  const now = new Date()
+                  const end = new Date(endsAt)
+                  const diffInMs = end.getTime() - now.getTime()
+                  const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24))
+                  return diffInDays > 0 ? diffInDays : 0
+                })()}{" "}
+                dias
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Botões e Menu */}

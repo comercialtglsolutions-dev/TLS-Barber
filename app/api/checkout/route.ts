@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/_lib/auth"
+import { createClient } from "@/app/_lib/supabase/server"
 import { stripe } from "@/app/_lib/stripe"
 import { db } from "@/app/_lib/prisma"
-import { decrypt } from "@/app/_lib/encryption" // Para destrancar as chaves de integração
+import { decrypt } from "@/app/_lib/encryption"
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    const supabase = createClient()
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser()
 
-    if (!session?.user) {
+    if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -85,16 +87,11 @@ export async function POST(req: Request) {
     // 2. BUSCAR O GATEWAY BANCÁRIO DEFINIDO NO PAINEL
     const activeCredential = await db.bankCredential.findFirst({
       include: { bank: true },
-      orderBy: { createdAt: "desc" }, // Usa a última cadastrada temporariamente
+      orderBy: { createdAt: "desc" },
     })
 
-    // 3. ROTEAMENTO DINÂMICO PARA O BANCO CORRETO
-    // Se o dono da loja não tem nenhum banco ativo ou preenchido, mandamos pro modo Simulação Nativo padrão
     const gateway = activeCredential?.bank?.provider || "CUSTOM"
 
-    // ============================================
-    // INTEGRAÇÃO: MERCADO PAGO (VIA MODAL PROFISSIONAL)
-    // ============================================
     if (gateway === "MERCADO_PAGO" && activeCredential) {
       return NextResponse.json({
         gateway,
@@ -106,9 +103,6 @@ export async function POST(req: Request) {
       })
     }
 
-    // ============================================
-    // INTEGRAÇÃO: ASAAS
-    // ============================================
     if (gateway === "ASAAS" && activeCredential) {
       try {
         const apiKey = decrypt(activeCredential.clientSecret)
@@ -127,7 +121,7 @@ export async function POST(req: Request) {
             name: `Pagamento: ${name}`,
             description: description,
             value: price,
-            billingType: "UNDEFINED", // Pix, Boleto e Cartão
+            billingType: "UNDEFINED",
             chargeType: "DETACHED",
             dueDateLimitDays: 1,
           }),
@@ -141,7 +135,6 @@ export async function POST(req: Request) {
         console.error("Asaas Error:", err)
       }
 
-      // Fallback local caso chaves do Asaas não sejam válidas no teste
       return NextResponse.json({
         url: `${appUrl}/checkout/${gateway}?amount=${price}&name=${encodeURIComponent(name)}`,
         isMock: true,
@@ -151,9 +144,6 @@ export async function POST(req: Request) {
       })
     }
 
-    // ============================================
-    // OUTROS BANCOS / CUSTOM - SIMULAÇÃO TELA PIX
-    // ============================================
     if (gateway !== "STRIPE") {
       return NextResponse.json({
         url: `${appUrl}/checkout/${gateway}?amount=${price}&name=${encodeURIComponent(name)}`,
@@ -165,9 +155,6 @@ export async function POST(req: Request) {
       })
     }
 
-    // ============================================
-    // INTEGRAÇÃO: STRIPE (FALLBACK / MODO PADRÃO ORIGINAL)
-    // ============================================
     const checkoutSession = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -178,7 +165,7 @@ export async function POST(req: Request) {
               name,
               description,
             },
-            unit_amount: Math.round(price * 100), // Stripe uses cents
+            unit_amount: Math.round(price * 100),
           },
           quantity: quantity,
         },
@@ -187,7 +174,7 @@ export async function POST(req: Request) {
       success_url: `${appUrl}/bookings`,
       cancel_url: `${appUrl}/`,
       metadata: {
-        userId: (session.user as any).id,
+        userId: authUser.id,
         itemId,
         type,
         quantity,

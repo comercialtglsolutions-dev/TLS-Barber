@@ -1,23 +1,30 @@
 "use server"
 
 import { db } from "../_lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 
 export const getNotifications = async () => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return { bookings: [], purchases: [] }
+  if (!authUser) {
+    return { bookings: [], purchases: [], pendingPixPayments: [] }
   }
 
-  const barbershopId = (session.user as any).barbershopId
+  const user = await db.user.findUnique({
+    where: { id: authUser.id },
+    select: { role: true, barbershopId: true },
+  })
 
-  if (!barbershopId) {
-    return { bookings: [], purchases: [] }
+  if (user?.role !== "ADMIN" || !user.barbershopId) {
+    return { bookings: [], purchases: [], pendingPixPayments: [] }
   }
 
-  const [bookings, purchases] = await Promise.all([
+  const barbershopId = user.barbershopId
+
+  const [bookings, purchases, pendingPixPayments] = await Promise.all([
     (db as any).booking.findMany({
       where: { barbershopId },
       take: 5,
@@ -41,6 +48,20 @@ export const getNotifications = async () => {
         product: true,
       },
     }) as Promise<any[]>,
+    (db as any).booking.findMany({
+      where: {
+        barbershopId,
+        paymentStatus: "PENDING_VERIFICATION",
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+      include: {
+        user: true,
+        service: true,
+        combo: true,
+      },
+    }),
   ])
 
   // Convert Decimals to Numbers to avoid hydration issues
@@ -57,8 +78,17 @@ export const getNotifications = async () => {
     product: { ...p.product, price: Number(p.product.price) },
   }))
 
+  const sanitizedPendingPix = pendingPixPayments.map((b: any) => ({
+    ...b,
+    service: b.service
+      ? { ...b.service, price: Number(b.service.price) }
+      : null,
+    combo: b.combo ? { ...b.combo, price: Number(b.combo.price) } : null,
+  }))
+
   return {
     bookings: sanitizedBookings,
     purchases: sanitizedPurchases,
+    pendingPixPayments: sanitizedPendingPix,
   }
 }

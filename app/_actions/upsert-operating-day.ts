@@ -2,8 +2,7 @@
 
 import { db } from "../_lib/prisma"
 import { revalidatePath } from "next/cache"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 
 interface UpsertOperatingDayProps {
   dayOfWeek: number
@@ -13,19 +12,26 @@ interface UpsertOperatingDayProps {
 }
 
 export const upsertOperatingDay = async (props: UpsertOperatingDayProps) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if ((session?.user as any)?.role !== "ADMIN") {
+  if (!authUser) throw new Error("Não autorizado")
+
+  const user = await db.user.findUnique({ where: { id: authUser.id } })
+
+  if (user?.role !== "ADMIN") {
     throw new Error("Acesso negado")
   }
 
-  if (!session?.user) {
-    throw new Error("Não autorizado")
+  const barbershopId = user.barbershopId
+
+  if (!barbershopId) {
+    throw new Error("Barbearia não vinculada ao usuário")
   }
 
-  const barbershopId = (session.user as any).barbershopId
-
-  return await (db as any).operatingDay.upsert({
+  const result = await (db as any).operatingDay.upsert({
     where: {
       barbershopId_dayOfWeek: {
         barbershopId,
@@ -38,4 +44,5 @@ export const upsertOperatingDay = async (props: UpsertOperatingDayProps) => {
 
   revalidatePath("/admin")
   revalidatePath("/")
+  return result
 }

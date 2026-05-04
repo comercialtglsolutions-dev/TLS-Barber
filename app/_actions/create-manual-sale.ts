@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { db } from "../_lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 
 interface CreateManualSaleParams {
   userId: string
@@ -12,15 +11,26 @@ interface CreateManualSaleParams {
 }
 
 export const createManualSale = async (params: CreateManualSaleParams) => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  if (!authUser) throw new Error("Não autorizado")
+
+  const user = await db.user.findUnique({ where: { id: authUser.id } })
+
+  if (user?.role !== "ADMIN") {
     throw new Error("Somente administradores podem realizar vendas manuais.")
   }
 
-  const barbershopId = (session.user as any).barbershopId
+  const barbershopId = user.barbershopId
 
-  return await (db as any).purchase.create({
+  if (!barbershopId) {
+    throw new Error("Barbearia não vinculada")
+  }
+
+  const result = await (db as any).purchase.create({
     data: {
       userId: params.userId,
       productId: params.productId,
@@ -32,4 +42,6 @@ export const createManualSale = async (params: CreateManualSaleParams) => {
 
   revalidatePath("/")
   revalidatePath("/admin")
+
+  return result
 }

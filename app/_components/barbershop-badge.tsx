@@ -2,7 +2,7 @@
 
 import { Store as StoreIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { useAuth } from "../_providers/auth"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,9 +22,9 @@ interface BarbershopBadgeProps {
 
 const BarbershopBadge = ({ name, address }: BarbershopBadgeProps) => {
   const router = useRouter()
-  const { data } = useSession()
+  const { profile } = useAuth()
 
-  const isAdmin = (data?.user as any)?.role === "ADMIN"
+  const isAdmin = profile?.role === "ADMIN"
 
   const handleChangeUnit = () => {
     router.push("/dashboard")

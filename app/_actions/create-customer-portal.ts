@@ -1,25 +1,31 @@
 "use server"
 
-import { getServerSession } from "next-auth"
-import { authOptions } from "../_lib/auth"
+import { createClient } from "../_lib/supabase/server"
 import { stripe } from "../_lib/stripe"
 import { db } from "../_lib/prisma"
 
 export const createCustomerPortal = async () => {
-  const session = await getServerSession(authOptions)
+  const supabase = createClient()
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  if (!authUser) {
     throw new Error("Não autorizado")
   }
 
-  const userId = (session.user as any).id
+  const userId = authUser.id
 
   // Buscar o usuário no banco usando query bruta para pular a validação do Prisma Client
   const users: any[] = await db.$queryRawUnsafe(
-    `SELECT "stripeCustomerId", "email" FROM "User" WHERE "id" = $1`,
+    `SELECT "stripeCustomerId", "email", "role" FROM "User" WHERE "id" = $1`,
     userId,
   )
   const user = users[0]
+
+  if (user?.role !== "ADMIN") {
+    throw new Error("Não autorizado")
+  }
 
   let customerId = user?.stripeCustomerId
 
