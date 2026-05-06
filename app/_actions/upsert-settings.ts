@@ -71,7 +71,6 @@ export const upsertSettings = async (data: SettingsSchema) => {
       startHour: validatedData.startHour,
       endHour: validatedData.endHour,
       phones: validatedData.phones || [],
-      trialDays: validatedData.trialDays || 15,
       instagramUrl: validatedData.instagramUrl || "",
       whatsappUrl: validatedData.whatsappUrl || "",
       // @ts-ignore
@@ -90,7 +89,6 @@ export const upsertSettings = async (data: SettingsSchema) => {
       startHour: validatedData.startHour,
       endHour: validatedData.endHour,
       phones: validatedData.phones || [],
-      trialDays: validatedData.trialDays || 15,
       instagramUrl: validatedData.instagramUrl || "",
       whatsappUrl: validatedData.whatsappUrl || "",
       // @ts-ignore
