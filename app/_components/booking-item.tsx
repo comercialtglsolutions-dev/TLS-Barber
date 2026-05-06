@@ -95,8 +95,8 @@ const BookingItem = ({ booking, settings }: BookingItemProps) => {
 
   return (
     <Sheet open={isSheetOpen} onOpenChange={handleSheetOpenChange}>
-      <SheetTrigger className="w-full min-w-[90%] rounded-xl border-white bg-[#3EABFD] lg:min-w-[450px]">
-        <Card className="min-w-[90%] lg:min-w-[450px]">
+      <SheetTrigger className="w-full rounded-xl border-white bg-[#3EABFD] lg:min-w-[450px]">
+        <Card className="w-full lg:min-w-[450px]">
           <CardContent className="flex justify-between p-0">
             <div className="flex flex-col gap-2 py-5 pl-5">
               <Badge

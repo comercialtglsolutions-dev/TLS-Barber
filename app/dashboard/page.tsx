@@ -106,7 +106,7 @@ const Dashboard = async ({
     })
 
     return (
-      <div className="min-h-screen bg-[#0A0A0A] bg-[url('/bg-pattern.png')] bg-repeat">
+      <div className="min-h-screen bg-[#0A0A0A]">
         <Header />
         <BarbershopSelector
           barbershops={JSON.parse(JSON.stringify(barbershops))}
