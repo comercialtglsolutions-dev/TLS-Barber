@@ -29,6 +29,10 @@ model User {
   purchases        Purchase[]
   sessions         Session[]
   stripeCustomerId String?
+  cardLast4        String?
+  cardBrand        String?
+  nextInvoiceDate  DateTime?
+  planStartedAt    DateTime?
   phone            String?
   cpf              String?
 }

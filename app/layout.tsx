@@ -10,6 +10,8 @@ import OnboardingWizard from "./_components/onboarding-wizard"
 import { createClient } from "./_lib/supabase/server"
 import { getOnboardingStatus } from "./_actions/onboarding"
 
+import SubscriptionGuard from "./_components/subscription-guard"
+
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
@@ -49,6 +51,7 @@ export default async function RootLayout({
             <Footer />
           </div>
           <WhatsAppButton phoneNumber={settings?.phones[0] || ""} />
+          <SubscriptionGuard />
           <OnboardingWizard initialStatus={initialOnboardingStatus} />
         </AuthProvider>
         <Toaster />

@@ -8,13 +8,20 @@ import { createStripeCheckout } from "@/app/_actions/create-stripe-checkout"
 interface PricingCardsProps {
   userId?: string
   currentPlan?: string
+  hasUsedTrial?: boolean
+  isExpired?: boolean
   initialPrices?: {
     barber: number | null
     premium: number | null
   } | null
 }
 
-const PricingCards = ({ currentPlan, initialPrices }: PricingCardsProps) => {
+const PricingCards = ({
+  currentPlan,
+  hasUsedTrial,
+  isExpired,
+  initialPrices,
+}: PricingCardsProps) => {
   const handleSubscribe = async (planName: string) => {
     if (planName === "Gratuito") return
 
@@ -57,10 +64,12 @@ const PricingCards = ({ currentPlan, initialPrices }: PricingCardsProps) => {
       ],
       cta:
         currentPlan === "FREE" || !currentPlan
-          ? "Seu Plano Atual"
+          ? isExpired && currentPlan === "FREE"
+            ? "Teste Expirado"
+            : "Seu Plano Atual"
           : "Começar Teste Grátis",
       highlighted: false,
-      disabled: currentPlan === "FREE" || !currentPlan,
+      disabled: currentPlan === "FREE" || !currentPlan || hasUsedTrial,
     },
     {
       id: "BARBER",
@@ -76,9 +85,13 @@ const PricingCards = ({ currentPlan, initialPrices }: PricingCardsProps) => {
         "Suporte via WhatsApp",
       ],
       cta:
-        currentPlan === "BARBER" ? "Seu Plano Atual" : "Assinar Plano Barber",
+        currentPlan === "BARBER"
+          ? isExpired
+            ? "Renovar Plano Barber"
+            : "Seu Plano Atual"
+          : "Assinar Plano Barber",
       highlighted: true,
-      disabled: currentPlan === "BARBER",
+      disabled: currentPlan === "BARBER" && !isExpired,
     },
     {
       id: "PREMIUM",
@@ -94,9 +107,13 @@ const PricingCards = ({ currentPlan, initialPrices }: PricingCardsProps) => {
         "Suporte VIP 24h",
       ],
       cta:
-        currentPlan === "PREMIUM" ? "Seu Plano Atual" : "Assinar Plano Premium",
+        currentPlan === "PREMIUM"
+          ? isExpired
+            ? "Renovar Plano Premium"
+            : "Seu Plano Atual"
+          : "Assinar Plano Premium",
       highlighted: false,
-      disabled: currentPlan === "PREMIUM",
+      disabled: currentPlan === "PREMIUM" && !isExpired,
     },
   ]
 

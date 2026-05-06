@@ -17,7 +17,7 @@ export async function GET() {
 
   try {
     // 1. Tentar encontrar pelo ID do Supabase
-    let user = await db.user.findUnique({
+    let user: any = await db.user.findUnique({
       where: { id: authUser.id },
       select: {
         id: true,
@@ -29,7 +29,7 @@ export async function GET() {
         barbershopId: true,
         phone: true,
         cpf: true,
-      },
+      } as any,
     })
 
     // 2. Se não encontrar pelo ID, tentar pelo Email (Migração do NextAuth)
@@ -83,6 +83,22 @@ export async function GET() {
           cpf: (newUser as any).cpf,
         } as any
       }
+    }
+
+    // Se for ADMIN e não tiver data de teste, inicializa agora (15 dias)
+    if (user && user.role === "ADMIN" && !user.trialEndsAt) {
+      const trialDays = 15
+      const trialEndsAt = new Date()
+      trialEndsAt.setDate(trialEndsAt.getDate() + trialDays)
+
+      await db.user.update({
+        where: { id: user.id },
+        data: {
+          trialEndsAt,
+          hasUsedTrial: true,
+        },
+      })
+      user.trialEndsAt = trialEndsAt
     }
 
     return NextResponse.json(user)

@@ -40,6 +40,24 @@ export const upsertSettings = async (data: SettingsSchema) => {
         },
       },
     })
+
+    // Ativa o período de teste de 15 dias para o usuário que criou a barbearia
+    // E garante que dados de cobrança antigos (se houver) sejam limpos
+    const trialDays = 15
+    const trialEndsAt = new Date()
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays)
+
+    await (db.user as any).update({
+      where: { id: user.id },
+      data: {
+        trialEndsAt,
+        hasUsedTrial: true,
+        cardLast4: null,
+        cardBrand: null,
+        nextInvoiceDate: null,
+      },
+    })
+
     barbershopId = newBarbershop.id
   }
 

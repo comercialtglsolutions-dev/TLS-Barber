@@ -1,0 +1,45 @@
+
+--- DEBUG SUBSCRIPTION [2026-05-06T20:50:16.899Z] ---
+User: comercial.gbbarbearia@gmail.com
+Plan: PREMIUM
+DB nextInvoiceDate: null
+DB planStartedAt: null
+StripeDetails Amount: 109.99
+StripeDetails Date: 1780692615414 (05/06/2026)
+-------------------------------------------------------
+
+--- DEBUG SUBSCRIPTION [2026-05-06T20:51:40.498Z] ---
+User: comercial.gbbarbearia@gmail.com
+Plan: PREMIUM
+DB nextInvoiceDate: Fri Jun 05 2026 17:50:15 GMT-0300 (Horário Padrão de Brasília)
+DB planStartedAt: Wed May 06 2026 17:50:15 GMT-0300 (Horário Padrão de Brasília)
+StripeDetails Amount: 109.99
+StripeDetails Date: 1780692615414 (05/06/2026)
+-------------------------------------------------------
+
+--- DEBUG SUBSCRIPTION [2026-05-06T20:51:49.358Z] ---
+User: comercial.gbbarbearia@gmail.com
+Plan: PREMIUM
+DB nextInvoiceDate: Fri Jun 05 2026 17:50:15 GMT-0300 (Horário Padrão de Brasília)
+DB planStartedAt: Wed May 06 2026 17:50:15 GMT-0300 (Horário Padrão de Brasília)
+StripeDetails Amount: 109.99
+StripeDetails Date: 1780692615414 (05/06/2026)
+-------------------------------------------------------
+
+--- DEBUG SUBSCRIPTION [2026-05-06T20:51:59.957Z] ---
+User: comercial.gbbarbearia@gmail.com
+Plan: PREMIUM
+DB nextInvoiceDate: Fri Jun 05 2026 17:50:15 GMT-0300 (Horário Padrão de Brasília)
+DB planStartedAt: Wed May 06 2026 17:50:15 GMT-0300 (Horário Padrão de Brasília)
+StripeDetails Amount: 109.99
+StripeDetails Date: 1780692615414 (05/06/2026)
+-------------------------------------------------------
+
+--- DEBUG SUBSCRIPTION [2026-05-06T20:52:44.511Z] ---
+User: comercial.gbbarbearia@gmail.com
+Plan: PREMIUM
+DB nextInvoiceDate: Fri Jun 05 2026 17:50:15 GMT-0300 (Horário Padrão de Brasília)
+DB planStartedAt: Wed May 06 2026 17:50:15 GMT-0300 (Horário Padrão de Brasília)
+StripeDetails Amount: 109.99
+StripeDetails Date: 1780692615414 (05/06/2026)
+-------------------------------------------------------
