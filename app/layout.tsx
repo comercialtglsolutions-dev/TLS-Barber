@@ -24,7 +24,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const settings = await db.settings.findFirst()
   const supabase = createClient()
   const {
     data: { user: authUser },
@@ -50,7 +49,7 @@ export default async function RootLayout({
             <div className="flex-1">{children}</div>
             <Footer />
           </div>
-          <WhatsAppButton phoneNumber={settings?.phones[0] || ""} />
+          <WhatsAppButton phoneNumber="11975678074" />
           <SubscriptionGuard />
           <OnboardingWizard initialStatus={initialOnboardingStatus} />
         </AuthProvider>
