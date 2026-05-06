@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { SheetClose, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet"
 import { quickSearchOptions } from "../_constants/search"
+import { Settings as SettingsIcon } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useAuth } from "../_providers/auth"
@@ -137,6 +138,19 @@ const SidebarSheet = () => {
             ))}
           </div>
 
+          {user && profile?.role !== "ADMIN" && (
+            <div className="flex flex-col gap-2 border-b border-solid py-5">
+              <SheetClose asChild>
+                <Button className="justify-start gap-2" asChild>
+                  <Link href="/settings" className="text-white">
+                    <SettingsIcon size={18} color="#FFFFFF" />
+                    Configurações
+                  </Link>
+                </Button>
+              </SheetClose>
+            </div>
+          )}
+
           {user && (
             <div className="flex flex-col gap-2 py-5">
               <AlertDialog>
@@ -221,6 +235,7 @@ const SidebarSheet = () => {
                 src="/logo-tgl.svg"
                 height={18}
                 width={100}
+                style={{ height: "auto" }}
               />
             </Link>
           </div>

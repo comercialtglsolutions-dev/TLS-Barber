@@ -104,5 +104,5 @@ export const upsertCombo = async (params: {
 
   revalidatePath("/admin")
   revalidatePath("/")
-  return result
+  return { ...result, price: Number(result.price) }
 }

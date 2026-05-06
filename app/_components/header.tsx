@@ -44,6 +44,7 @@ const Header = () => {
               src="/Logo.svg"
               height={18}
               width={180}
+              style={{ height: "auto" }}
               className="lg:ml-[250px]"
             />
           </Link>

@@ -131,15 +131,13 @@ export default function OnboardingWizard({
     name: "",
     description: "",
     price: "",
-    imageUrl:
-      "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=2074&auto=format&fit=crop",
+    imageUrl: "",
   })
   const [newProduct, setNewProduct] = useState({
     name: "",
     description: "",
     price: "",
-    imageUrl:
-      "https://images.unsplash.com/photo-1593702275677-f916c8c98ca7?q=80&w=2070&auto=format&fit=crop",
+    imageUrl: "",
   })
   const [newCombo, setNewCombo] = useState({
     name: "",
@@ -147,8 +145,7 @@ export default function OnboardingWizard({
     price: "",
     service1Id: "",
     service2Id: "",
-    imageUrl:
-      "https://images.unsplash.com/photo-1621605815841-28d9446e364f?q=80&w=2070&auto=format&fit=crop",
+    imageUrl: "",
   })
   const [newBarber, setNewBarber] = useState({
     name: "",
@@ -280,13 +277,16 @@ export default function OnboardingWizard({
         ...newService,
         price: Number(newService.price),
       })
-      setServices([...services, saved])
+      setServices((prev) => {
+        const exists = prev.find((s) => s.id === saved.id)
+        if (exists) return prev.map((s) => (s.id === saved.id ? saved : s))
+        return [...prev, saved]
+      })
       setNewService({
         name: "",
         description: "",
         price: "",
-        imageUrl:
-          "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=2074&auto=format&fit=crop",
+        imageUrl: "",
       })
       toast.success("Serviço adicionado!")
     } catch (e: any) {
@@ -305,13 +305,16 @@ export default function OnboardingWizard({
         ...newProduct,
         price: Number(newProduct.price),
       })
-      setProducts([...products, saved])
+      setProducts((prev) => {
+        const exists = prev.find((p) => p.id === saved.id)
+        if (exists) return prev.map((p) => (p.id === saved.id ? saved : p))
+        return [...prev, saved]
+      })
       setNewProduct({
         name: "",
         description: "",
         price: "",
-        imageUrl:
-          "https://images.unsplash.com/photo-1593702275677-f916c8c98ca7?q=80&w=2070&auto=format&fit=crop",
+        imageUrl: "",
       })
       toast.success("Produto adicionado!")
     } catch (e: any) {
@@ -323,22 +326,25 @@ export default function OnboardingWizard({
 
   const addCombo = async () => {
     if (!newCombo.name || !newCombo.service1Id || !newCombo.service2Id)
-      return toast.error("Preencha os campos obrigatórios")
+      return toast.error("Nome e serviços são obrigatórios")
     setLoading(true)
     try {
       const saved = await upsertCombo({
         ...newCombo,
         price: newCombo.price ? Number(newCombo.price) : undefined,
       })
-      setCombos([...combos, saved])
+      setCombos((prev) => {
+        const exists = prev.find((c) => c.id === saved.id)
+        if (exists) return prev.map((c) => (c.id === saved.id ? saved : c))
+        return [...prev, saved]
+      })
       setNewCombo({
         name: "",
         description: "",
         price: "",
         service1Id: "",
         service2Id: "",
-        imageUrl:
-          "https://images.unsplash.com/photo-1621605815841-28d9446e364f?q=80&w=2070&auto=format&fit=crop",
+        imageUrl: "",
       })
       toast.success("Combo adicionado!")
     } catch (e: any) {
@@ -383,7 +389,11 @@ export default function OnboardingWizard({
     setLoading(true)
     try {
       const saved = await upsertBarber(newBarber)
-      setBarbers([...barbers, saved])
+      setBarbers((prev) => {
+        const exists = prev.find((b) => b.id === saved.id)
+        if (exists) return prev.map((b) => (b.id === saved.id ? saved : b))
+        return [...prev, saved]
+      })
       setNewBarber({ name: "", description: "", imageUrl: "" })
       toast.success("Barbeiro adicionado!")
     } catch (e: any) {
@@ -500,7 +510,7 @@ export default function OnboardingWizard({
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-bold text-white">
-                        Foto da Barbearia
+                        Logo da Barbearia
                       </p>
                       <p className="text-[10px] text-gray-500">
                         PNG, JPG ou WEBP até 5MB
@@ -743,45 +753,47 @@ export default function OnboardingWizard({
                       Profissionais ({barbers.length})
                     </p>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                      {barbers.map((barber, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-3"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 overflow-hidden rounded-full border border-white/10">
-                              {barber.imageUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={barber.imageUrl}
-                                  alt={barber.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-[#222] text-gray-600">
-                                  <UserIcon className="h-5 w-5" />
-                                </div>
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-white">
-                                {barber.name}
-                              </p>
-                              <p className="text-[10px] text-gray-500">
-                                {barber.description || "Profissional"}
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-500 hover:bg-red-500/10 hover:text-red-400"
-                            onClick={() => removeBarber(barber.id)}
+                      {barbers
+                        .filter((b) => b && b.name)
+                        .map((barber, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-3"
                           >
-                            <Trash2 size={16} />
-                          </Button>
-                        </div>
-                      ))}
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 overflow-hidden rounded-full border border-white/10">
+                                {barber.imageUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={barber.imageUrl}
+                                    alt={barber.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center bg-[#222] text-gray-600">
+                                    <UserIcon className="h-5 w-5" />
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-white">
+                                  {barber.name}
+                                </p>
+                                <p className="text-[10px] text-gray-500">
+                                  {barber.description || "Profissional"}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 hover:bg-red-500/10 hover:text-red-400"
+                              onClick={() => removeBarber(barber.id)}
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 </div>

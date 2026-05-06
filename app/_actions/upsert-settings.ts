@@ -20,10 +20,27 @@ export const upsertSettings = async (data: SettingsSchema) => {
   }
 
   const validatedData = settingsSchema.parse(data)
-  const barbershopId = user.barbershopId
+  let barbershopId = user.barbershopId
 
+  // Se não tem barbearia vinculada, cria uma nova
   if (!barbershopId) {
-    throw new Error("Barbearia não vinculada ao usuário")
+    const slug = validatedData.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/[\s_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+
+    const newBarbershop = await db.barbershop.create({
+      data: {
+        name: validatedData.name,
+        slug: `${slug}-${Math.floor(Math.random() * 1000)}`, // Sufixo para evitar duplicidade
+        users: {
+          connect: { id: user.id },
+        },
+      },
+    })
+    barbershopId = newBarbershop.id
   }
 
   await db.settings.upsert({

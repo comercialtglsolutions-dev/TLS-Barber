@@ -27,6 +27,8 @@ export async function GET() {
         subscriptionPlan: true,
         trialEndsAt: true,
         barbershopId: true,
+        phone: true,
+        cpf: true,
       },
     })
 
@@ -51,7 +53,9 @@ export async function GET() {
           subscriptionPlan: existingUser.subscriptionPlan,
           trialEndsAt: existingUser.trialEndsAt,
           barbershopId: existingUser.barbershopId,
-        }
+          phone: (existingUser as any).phone,
+          cpf: (existingUser as any).cpf,
+        } as any
       } else {
         // 3. Se não existe de jeito nenhum, cria um novo (Novo Cadastro)
         const role =
@@ -75,7 +79,9 @@ export async function GET() {
           subscriptionPlan: newUser.subscriptionPlan,
           trialEndsAt: newUser.trialEndsAt,
           barbershopId: newUser.barbershopId,
-        }
+          phone: (newUser as any).phone,
+          cpf: (newUser as any).cpf,
+        } as any
       }
     }
 

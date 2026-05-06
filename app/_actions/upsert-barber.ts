@@ -28,7 +28,7 @@ export const upsertBarber = async (params: UpsertBarberParams) => {
   const barbershopId = user.barbershopId
 
   if (params.id) {
-    await (db as any).barber.update({
+    const updated = await (db as any).barber.update({
       where: { id: params.id },
       data: {
         name: params.name,
@@ -36,8 +36,32 @@ export const upsertBarber = async (params: UpsertBarberParams) => {
         description: params.description,
       },
     })
+    revalidatePath("/admin")
+    revalidatePath("/dashboard")
+    return updated
   } else {
-    await (db as any).barber.create({
+    // Tenta encontrar por nome na mesma barbearia para evitar erro de duplicidade
+    const existing = await (db as any).barber.findFirst({
+      where: {
+        name: params.name,
+        barbershopId,
+      },
+    })
+
+    if (existing) {
+      const updated = await (db as any).barber.update({
+        where: { id: existing.id },
+        data: {
+          imageUrl: params.imageUrl,
+          description: params.description,
+        },
+      })
+      revalidatePath("/admin")
+      revalidatePath("/dashboard")
+      return updated
+    }
+
+    const created = await (db as any).barber.create({
       data: {
         name: params.name,
         imageUrl: params.imageUrl,
@@ -45,8 +69,8 @@ export const upsertBarber = async (params: UpsertBarberParams) => {
         barbershopId,
       },
     })
+    revalidatePath("/admin")
+    revalidatePath("/dashboard")
+    return created
   }
-
-  revalidatePath("/admin")
-  revalidatePath("/dashboard")
 }

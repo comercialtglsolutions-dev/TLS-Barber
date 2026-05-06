@@ -50,7 +50,7 @@ export const manualBookingSchema = z
 export type ManualBookingSchema = z.infer<typeof manualBookingSchema>
 
 export const settingsSchema = z.object({
-  id: z.number().optional(),
+  id: z.string().optional(),
   name: z.string().min(1, "Nome é obrigatório"),
   address: z.string().min(1, "Endereço é obrigatório"),
   description: z.string().min(1, "Descrição é obrigatória"),
@@ -84,3 +84,11 @@ export const manualSaleSchema = z.object({
 })
 
 export type ManualSaleSchema = z.infer<typeof manualSaleSchema>
+
+export const userProfileSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  phone: z.string().optional(),
+  cpf: z.string().optional(),
+})
+
+export type UserProfileSchema = z.infer<typeof userProfileSchema>

@@ -39,27 +39,38 @@ export const getOnboardingStatus = async () => {
   if (!isCompleted && (user as any).barbershopId) {
     const barbershopId = (user as any).barbershopId
 
-    const [settings, operatingDays, services, products, combos] =
+    const [settings, operatingDays, barbers, services, products, combos] =
       await Promise.all([
         (db as any).settings.findUnique({ where: { barbershopId } }),
         (db as any).operatingDay.findMany({ where: { barbershopId } }),
+        (db as any).barber.findMany({ where: { barbershopId } }),
         (db as any).service.findMany({ where: { barbershopId } }),
         (db as any).product.findMany({ where: { barbershopId } }),
         (db as any).combo.findMany({ where: { barbershopId } }),
       ])
 
-    existingData = { settings, operatingDays, services, products, combos }
+    existingData = {
+      settings,
+      operatingDays,
+      barbers,
+      services: services.map((s: any) => ({ ...s, price: Number(s.price) })),
+      products: products.map((p: any) => ({ ...p, price: Number(p.price) })),
+      combos: combos.map((c: any) => ({ ...c, price: Number(c.price) })),
+    }
 
     if (settings) {
       currentStep = 2
       if (operatingDays.length > 0) {
         currentStep = 3
-        if (services.length > 0) {
+        if (barbers.length > 0) {
           currentStep = 4
-          if (products.length > 0) {
+          if (services.length > 0) {
             currentStep = 5
-            if (combos.length > 0) {
+            if (products.length > 0) {
               currentStep = 6
+              if (combos.length > 0) {
+                currentStep = 7
+              }
             }
           }
         }

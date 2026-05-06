@@ -342,11 +342,6 @@ const SignInDialog = ({
               Cadastrar agora
             </Button>
           </form>
-
-          <SocialLogin
-            isLoading={isLoading}
-            onClick={handleLoginWithGoogleClick}
-          />
         </div>
       )}
     </div>

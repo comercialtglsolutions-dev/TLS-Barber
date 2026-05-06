@@ -18,6 +18,8 @@ import { Settings } from "@prisma/client"
 import { settingsSchema, SettingsSchema } from "../_schemas"
 import { upsertSettings } from "@/app/_actions/upsert-settings"
 import ImageUpload from "./image-upload"
+import GoogleLinkButton from "@/app/_components/google-link-button"
+import { ShieldCheck } from "lucide-react"
 
 interface SettingsFormProps {
   settings: Settings
@@ -188,6 +190,19 @@ const SettingsForm = ({ settings }: SettingsFormProps) => {
 
         <Button type="submit">Salvar Configurações</Button>
       </form>
+
+      <div className="mt-8 border-t border-white/10 pt-8">
+        <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
+          <ShieldCheck size={20} className="text-primary" />
+          Segurança da Conta
+        </h3>
+        <p className="mb-6 text-sm text-gray-400">
+          Vincule sua conta administrativa ao Google para facilitar o acesso.
+        </p>
+        <div className="max-w-md">
+          <GoogleLinkButton />
+        </div>
+      </div>
     </Form>
   )
 }

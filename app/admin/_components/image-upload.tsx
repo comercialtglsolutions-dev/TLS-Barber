@@ -62,7 +62,13 @@ const ImageUpload = ({ value, onChange, disabled }: ImageUploadProps) => {
                 <XIcon className="h-4 w-4" />
               </Button>
             </div>
-            <Image fill src={value} alt="Preview" className="object-cover" />
+            <Image
+              fill
+              src={value}
+              alt="Preview"
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
           </div>
         ) : (
           <div

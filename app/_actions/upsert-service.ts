@@ -70,5 +70,5 @@ export const upsertService = async (params: {
 
   revalidatePath("/admin")
   revalidatePath("/")
-  return result
+  return { ...result, price: Number(result.price) }
 }
