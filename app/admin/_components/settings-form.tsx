@@ -36,7 +36,6 @@ const SettingsForm = ({ settings }: SettingsFormProps) => {
       startHour: (settings as any).startHour || "09:00",
       endHour: (settings as any).endHour || "19:00",
       phones: settings.phones || [],
-      trialDays: (settings as any).trialDays || 15,
       instagramUrl: (settings as any).instagramUrl || "",
       whatsappUrl: (settings as any).whatsappUrl || "",
     },
@@ -122,20 +121,6 @@ const SettingsForm = ({ settings }: SettingsFormProps) => {
                     field.onChange([value])
                   }}
                 />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="trialDays"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Dias de Teste Grátis (Trial)</FormLabel>
-              <FormControl>
-                <Input type="number" placeholder="15" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

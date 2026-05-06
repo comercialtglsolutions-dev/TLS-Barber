@@ -64,10 +64,6 @@ export const settingsSchema = z.object({
     .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Horário inválido (HH:mm)")
     .optional(),
   phones: z.array(z.string()).optional(),
-  trialDays: z.coerce
-    .number()
-    .min(1, "O período de teste deve ser de pelo menos 1 dia")
-    .optional(),
   instagramUrl: z
     .string()
     .url("URL do Instagram inválida")
